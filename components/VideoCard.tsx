@@ -3,9 +3,9 @@ import {
   Text,
   StyleSheet,
   Dimensions,
-  TouchableOpacity,
   Modal,
   TextInput,
+  Pressable,
 } from "react-native";
 import { VideoView, useVideoPlayer } from "expo-video";
 import Slider from "@react-native-community/slider";
@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import * as Sharing from "expo-sharing";
 import * as Haptics from "expo-haptics";
+import VideoDescription from "./VideoDescription";
 
 const { height } = Dimensions.get("window");
 
@@ -28,9 +29,14 @@ export default function VideoCard({ item, isActive }: any) {
   const [commentsVisible, setCommentsVisible] = useState(false);
   const [commentText, setCommentText] = useState("");
 
-  // 🗳 votos
+  // 🗳 votos tipo barra (uno sube, otro baja)
   const [votes, setVotes] = useState({ a: 60, b: 40 });
 
+  const total = votes.a + votes.b;
+  const percentA = total > 0 ? Math.round((votes.a / total) * 100) : 0;
+  const percentB = total > 0 ? Math.round((votes.b / total) * 100) : 0;
+
+  // 🎬 player
   const player = useVideoPlayer(item.uri, (player) => {
     player.loop = true;
 
@@ -39,6 +45,7 @@ export default function VideoCard({ item, isActive }: any) {
     });
   });
 
+  // ▶️ autoplay por scroll
   useEffect(() => {
     if (isActive) {
       player.play();
@@ -49,6 +56,7 @@ export default function VideoCard({ item, isActive }: any) {
     }
   }, [isActive]);
 
+  // ⏱ progreso
   useEffect(() => {
     const interval = setInterval(() => {
       if (player.duration > 0) {
@@ -59,47 +67,42 @@ export default function VideoCard({ item, isActive }: any) {
     return () => clearInterval(interval);
   }, []);
 
+  // ▶️ play / pause
   const togglePlay = () => {
     if (!isActive) return;
 
-    if (player.playing) {
-      player.pause();
-    } else {
-      player.play();
-    }
+    if (player.playing) player.pause();
+    else player.play();
   };
 
-  // ❤️ LIKE
+  // ❤️ like
   const handleLike = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    if (liked) {
-      setLikes(likes - 1);
-    } else {
-      setLikes(likes + 1);
-    }
-
+    setLikes((prev) => (liked ? prev - 1 : prev + 1));
     setLiked(!liked);
   };
 
-  // 🗳 VOTAR
+  // 🗳 votar
   const handleVote = (option: "a" | "b") => {
-    const total = votes.a + votes.b;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    let newVotes = { ...votes };
-
-    if (option === "a") newVotes.a += 1;
-    else newVotes.b += 1;
-
-    const newTotal = newVotes.a + newVotes.b;
-
-    setVotes({
-      a: Math.round((newVotes.a / newTotal) * 100),
-      b: Math.round((newVotes.b / newTotal) * 100),
+    setVotes((prev) => {
+      if (option === "a") {
+        return {
+          a: prev.a >= 100 ? 100 : prev.a + 1,
+          b: prev.b <= 0 ? 0 : prev.b - 1,
+        };
+      } else {
+        return {
+          a: prev.a <= 0 ? 0 : prev.a - 1,
+          b: prev.b >= 100 ? 100 : prev.b + 1,
+        };
+      }
     });
   };
 
-  // 📤 SHARE
+  // 📤 share
   const handleShare = async () => {
     await Sharing.shareAsync(item.uri);
   };
@@ -107,20 +110,22 @@ export default function VideoCard({ item, isActive }: any) {
   return (
     <View style={styles.container}>
       
+      {/* 🎬 VIDEO */}
       <VideoView
         style={styles.video}
         player={player}
         contentFit="cover"
         nativeControls={false}
-        onTouchEnd={togglePlay}
       />
 
-      {/* overlay pausa */}
+      {/* 👆 CAPA DE TAP */}
+      <Pressable style={styles.touchLayer} onPress={togglePlay} />
+
+      {/* ⏸ overlay pausa */}
       {!playing && isActive && (
         <View style={styles.pauseOverlay} pointerEvents="none" />
       )}
 
-      {/* play icon */}
       {!playing && isActive && (
         <View style={styles.playOverlay} pointerEvents="none">
           <Ionicons name="play" size={60} color="white" />
@@ -128,51 +133,57 @@ export default function VideoCard({ item, isActive }: any) {
       )}
 
       {/* 🗳 VOTACIÓN */}
-      <View style={styles.voteContainer}>
-        <TouchableOpacity
-          style={styles.option}
+      <View style={styles.voteContainer} pointerEvents="box-none">
+        <Pressable
+          style={({ pressed }) => [
+            styles.option,
+            { opacity: pressed ? 0.6 : 1 },
+          ]}
           onPress={() => handleVote("a")}
         >
           <Text style={styles.optionText}>Sí</Text>
-          <Text style={styles.percent}>{votes.a}%</Text>
-        </TouchableOpacity>
+          <Text style={styles.percent}>{percentA}%</Text>
+        </Pressable>
 
-        <TouchableOpacity
-          style={styles.option}
+        <Pressable
+          style={({ pressed }) => [
+            styles.option,
+            { opacity: pressed ? 0.6 : 1 },
+          ]}
           onPress={() => handleVote("b")}
         >
           <Text style={styles.optionText}>No</Text>
-          <Text style={styles.percent}>{votes.b}%</Text>
-        </TouchableOpacity>
+          <Text style={styles.percent}>{percentB}%</Text>
+        </Pressable>
       </View>
 
       {/* ❤️ ACCIONES */}
-      <View style={styles.actions}>
-        <TouchableOpacity onPress={handleLike}>
+      <View style={styles.actions} pointerEvents="box-none">
+        <Pressable onPress={handleLike}>
           <Ionicons
             name={liked ? "heart" : "heart-outline"}
             size={32}
             color={liked ? "red" : "white"}
           />
           <Text style={styles.count}>{likes}</Text>
-        </TouchableOpacity>
+        </Pressable>
 
-        <TouchableOpacity onPress={() => setCommentsVisible(true)}>
+        <Pressable onPress={() => setCommentsVisible(true)}>
           <Ionicons name="chatbubble-outline" size={30} color="white" />
-        </TouchableOpacity>
+        </Pressable>
 
-        <TouchableOpacity onPress={handleShare}>
+        <Pressable onPress={handleShare}>
           <Ionicons name="share-social-outline" size={30} color="white" />
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
-      {/* INFO */}
-      <View style={styles.info}>
-        <Text style={styles.user}>{item.user}</Text>
-        <Text style={styles.desc}>{item.description}</Text>
-      </View>
+      {/* 📝 descripción */}
+      <VideoDescription
+        user={item.user}
+        description={item.description}
+      />
 
-      {/* SLIDER */}
+      {/* ⏱ slider */}
       {!playing && isActive && (
         <View style={styles.sliderContainer}>
           <Slider
@@ -189,7 +200,7 @@ export default function VideoCard({ item, isActive }: any) {
         </View>
       )}
 
-      {/* 💬 MODAL COMENTARIOS */}
+      {/* 💬 comentarios */}
       <Modal visible={commentsVisible} animationType="slide">
         <View style={{ flex: 1, padding: 20 }}>
           <Text style={{ fontSize: 18, fontWeight: "bold" }}>
@@ -208,7 +219,7 @@ export default function VideoCard({ item, isActive }: any) {
             }}
           />
 
-          <TouchableOpacity
+          <Pressable
             onPress={() => setCommentsVisible(false)}
             style={{
               marginTop: 20,
@@ -220,7 +231,7 @@ export default function VideoCard({ item, isActive }: any) {
             <Text style={{ color: "white", textAlign: "center" }}>
               Cerrar
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
       </Modal>
     </View>
@@ -228,18 +239,33 @@ export default function VideoCard({ item, isActive }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { height, backgroundColor: "black" },
-  video: { width: "100%", height: "100%", position: "absolute" },
+  container: {
+    height,
+    backgroundColor: "black",
+  },
+
+  video: {
+    width: "100%",
+    height: "100%",
+    position: "absolute",
+  },
+
+  touchLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1,
+  },
 
   pauseOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.3)",
+    zIndex: 2,
   },
 
   playOverlay: {
     position: "absolute",
     top: "40%",
     left: "40%",
+    zIndex: 3,
   },
 
   voteContainer: {
@@ -249,6 +275,7 @@ const styles = StyleSheet.create({
     right: 15,
     flexDirection: "row",
     gap: 10,
+    zIndex: 3,
   },
 
   option: {
@@ -259,8 +286,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
-  optionText: { color: "white", fontWeight: "bold" },
-  percent: { color: "white", marginTop: 5 },
+  optionText: {
+    color: "white",
+    fontWeight: "bold",
+  },
+
+  percent: {
+    color: "white",
+    marginTop: 5,
+  },
 
   actions: {
     position: "absolute",
@@ -268,17 +302,18 @@ const styles = StyleSheet.create({
     bottom: 150,
     gap: 20,
     alignItems: "center",
+    zIndex: 3,
   },
 
-  count: { color: "white", fontSize: 12 },
-
-  info: { position: "absolute", bottom: 80, left: 15 },
-  user: { color: "white", fontWeight: "bold" },
-  desc: { color: "white", marginTop: 5 },
+  count: {
+    color: "white",
+    fontSize: 12,
+  },
 
   sliderContainer: {
     position: "absolute",
     bottom: 20,
     width: "100%",
+    zIndex: 3,
   },
 });
