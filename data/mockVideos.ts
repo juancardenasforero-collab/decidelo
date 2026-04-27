@@ -1,14 +1,14 @@
 export const videos = [
   {
-    id: "1",
+    id: "video1",
     uri: require("../assets/video/decidelo.mp4"),
     user: "@juan",
     description:
-      "¿Lo hago o no?... 🤔",
+      "¿Lo hago o no?...ihiohihoihhhoihoihoihiohiohoihiohoihohiohoihoihoihiohoihiohoihoihoihoihoihiohohoi 🤔",
     votes: { a: 120, b: 80 }, // 👈 IMPORTANTE
   },
   {
-    id: "2",
+    id: "video2",
     uri: require("../assets/video/decidelo.mp4"),
     user: "@ana",
     description: "Decidan por mí 😈",

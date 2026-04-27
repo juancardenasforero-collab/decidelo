@@ -3,8 +3,6 @@ import {
   Text,
   StyleSheet,
   Dimensions,
-  Modal,
-  TextInput,
   Pressable,
 } from "react-native";
 import { VideoView, useVideoPlayer } from "expo-video";
@@ -14,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Sharing from "expo-sharing";
 import * as Haptics from "expo-haptics";
 import VideoDescription from "./VideoDescription";
+import CommentsModal from "./CommentsModal";
 
 const { height } = Dimensions.get("window");
 
@@ -21,22 +20,18 @@ export default function VideoCard({ item, isActive }: any) {
   const [progress, setProgress] = useState(0);
   const [playing, setPlaying] = useState(false);
 
-  // ❤️ like
   const [liked, setLiked] = useState(false);
   const [likes, setLikes] = useState(120);
 
-  // 💬 comentarios
   const [commentsVisible, setCommentsVisible] = useState(false);
-  const [commentText, setCommentText] = useState("");
 
-  // 🗳 votos tipo barra (uno sube, otro baja)
   const [votes, setVotes] = useState({ a: 60, b: 40 });
 
   const total = votes.a + votes.b;
   const percentA = total > 0 ? Math.round((votes.a / total) * 100) : 0;
   const percentB = total > 0 ? Math.round((votes.b / total) * 100) : 0;
 
-  // 🎬 player
+  // 🎬 VIDEO PLAYER
   const player = useVideoPlayer(item.uri, (player) => {
     player.loop = true;
 
@@ -70,15 +65,12 @@ export default function VideoCard({ item, isActive }: any) {
   // ▶️ play / pause
   const togglePlay = () => {
     if (!isActive) return;
-
-    if (player.playing) player.pause();
-    else player.play();
+    player.playing ? player.pause() : player.play();
   };
 
   // ❤️ like
   const handleLike = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
     setLikes((prev) => (liked ? prev - 1 : prev + 1));
     setLiked(!liked);
   };
@@ -118,10 +110,10 @@ export default function VideoCard({ item, isActive }: any) {
         nativeControls={false}
       />
 
-      {/* 👆 CAPA DE TAP */}
+      {/* 👆 TAP SOLO FONDO */}
       <Pressable style={styles.touchLayer} onPress={togglePlay} />
 
-      {/* ⏸ overlay pausa */}
+      {/* ⏸ overlay */}
       {!playing && isActive && (
         <View style={styles.pauseOverlay} pointerEvents="none" />
       )}
@@ -168,6 +160,7 @@ export default function VideoCard({ item, isActive }: any) {
           <Text style={styles.count}>{likes}</Text>
         </Pressable>
 
+        {/* 💬 ABRE COMMENTS MODAL */}
         <Pressable onPress={() => setCommentsVisible(true)}>
           <Ionicons name="chatbubble-outline" size={30} color="white" />
         </Pressable>
@@ -177,13 +170,15 @@ export default function VideoCard({ item, isActive }: any) {
         </Pressable>
       </View>
 
-      {/* 📝 descripción */}
-      <VideoDescription
-        user={item.user}
-        description={item.description}
-      />
+      {/* 📝 DESCRIPCIÓN */}
+      <View style={styles.descriptionWrapper} pointerEvents="box-none">
+        <VideoDescription
+          user={item.user}
+          description={item.description}
+        />
+      </View>
 
-      {/* ⏱ slider */}
+      {/* ⏱ SLIDER */}
       {!playing && isActive && (
         <View style={styles.sliderContainer}>
           <Slider
@@ -200,49 +195,18 @@ export default function VideoCard({ item, isActive }: any) {
         </View>
       )}
 
-      {/* 💬 comentarios */}
-      <Modal visible={commentsVisible} animationType="slide">
-        <View style={{ flex: 1, padding: 20 }}>
-          <Text style={{ fontSize: 18, fontWeight: "bold" }}>
-            Comentarios
-          </Text>
-
-          <TextInput
-            placeholder="Escribe un comentario..."
-            value={commentText}
-            onChangeText={setCommentText}
-            style={{
-              borderWidth: 1,
-              marginTop: 20,
-              padding: 10,
-              borderRadius: 10,
-            }}
-          />
-
-          <Pressable
-            onPress={() => setCommentsVisible(false)}
-            style={{
-              marginTop: 20,
-              backgroundColor: "black",
-              padding: 15,
-              borderRadius: 10,
-            }}
-          >
-            <Text style={{ color: "white", textAlign: "center" }}>
-              Cerrar
-            </Text>
-          </Pressable>
-        </View>
-      </Modal>
+      {/* 🔥 AQUÍ ESTÁ LA CLAVE */}
+      <CommentsModal
+  visible={commentsVisible}
+  onClose={() => setCommentsVisible(false)}
+  videoId={item.id}
+/>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    height,
-    backgroundColor: "black",
-  },
+  container: { height, backgroundColor: "black" },
 
   video: {
     width: "100%",
@@ -275,7 +239,7 @@ const styles = StyleSheet.create({
     right: 15,
     flexDirection: "row",
     gap: 10,
-    zIndex: 3,
+    zIndex: 4,
   },
 
   option: {
@@ -286,15 +250,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
-  optionText: {
-    color: "white",
-    fontWeight: "bold",
-  },
-
-  percent: {
-    color: "white",
-    marginTop: 5,
-  },
+  optionText: { color: "white", fontWeight: "bold" },
+  percent: { color: "white", marginTop: 5 },
 
   actions: {
     position: "absolute",
@@ -302,18 +259,23 @@ const styles = StyleSheet.create({
     bottom: 150,
     gap: 20,
     alignItems: "center",
-    zIndex: 3,
+    zIndex: 4,
   },
 
-  count: {
-    color: "white",
-    fontSize: 12,
+  descriptionWrapper: {
+    position: "absolute",
+    bottom: 16,
+    left: 15,
+    right: 100,
+    zIndex: 5,
   },
+
+  count: { color: "white", fontSize: 12 },
 
   sliderContainer: {
     position: "absolute",
     bottom: 20,
     width: "100%",
-    zIndex: 3,
+    zIndex: 4,
   },
 });
