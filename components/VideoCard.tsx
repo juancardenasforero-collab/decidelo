@@ -1,28 +1,29 @@
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import Slider from "@react-native-community/slider";
+import { useNavigation, useIsFocused } from "@react-navigation/native";
+import * as Haptics from "expo-haptics";
+import { useRouter } from "expo-router";
+import * as Sharing from "expo-sharing";
+import { VideoView, useVideoPlayer } from "expo-video";
+import { useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
   Dimensions,
   Pressable,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
-import { VideoView, useVideoPlayer } from "expo-video";
-import Slider from "@react-native-community/slider";
-import { useEffect, useState } from "react";
-import { Ionicons } from "@expo/vector-icons";
-import * as Sharing from "expo-sharing";
-import * as Haptics from "expo-haptics";
-import { useNavigation } from "@react-navigation/native";
-import { useRouter } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import VideoDescription from "./VideoDescription";
 import CommentsModal from "./CommentsModal";
+import VideoDescription from "./VideoDescription";
 
 const { height } = Dimensions.get("window");
 
 export default function VideoCard({ item, isActive }: any) {
   const navigation = useNavigation();
   const router = useRouter();
+  const isFocused = useIsFocused();
 
   const [progress, setProgress] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -36,7 +37,6 @@ export default function VideoCard({ item, isActive }: any) {
 
   const [showAuthAlert, setShowAuthAlert] = useState(false);
 
-  // 🔐 VALIDACIÓN REAL
   const requireAuth = async () => {
     const value = await AsyncStorage.getItem("isLogged");
 
@@ -60,15 +60,23 @@ export default function VideoCard({ item, isActive }: any) {
     });
   });
 
+  // ▶️ control normal de activación del item en feed
   useEffect(() => {
-    if (isActive) {
-      player.play();
+    if (isActive && isFocused) {
       player.muted = false;
+      player.play();
     } else {
+      player.muted = true;
       player.pause();
+    }
+  }, [isActive, isFocused]);
+
+  // 🔇 CONTROL AL CAMBIAR DE PANTALLA (SEARCH, PROFILE, ETC)
+  useEffect(() => {
+    if (!isFocused) {
       player.muted = true;
     }
-  }, [isActive]);
+  }, [isFocused]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -85,7 +93,6 @@ export default function VideoCard({ item, isActive }: any) {
     player.playing ? player.pause() : player.play();
   };
 
-  // ❤️ LIKE
   const handleLike = async () => {
     if (!(await requireAuth())) return;
 
@@ -94,7 +101,6 @@ export default function VideoCard({ item, isActive }: any) {
     setLiked(!liked);
   };
 
-  // 🗳 VOTO
   const handleVote = async (option: "a" | "b") => {
     if (!(await requireAuth())) return;
 
@@ -115,7 +121,6 @@ export default function VideoCard({ item, isActive }: any) {
     });
   };
 
-  // 📤 SHARE
   const handleShare = async () => {
     if (!(await requireAuth())) return;
     await Sharing.shareAsync(item.uri);
@@ -200,7 +205,6 @@ export default function VideoCard({ item, isActive }: any) {
         </View>
       )}
 
-      {/* 🔥 MODAL LOGIN */}
       {showAuthAlert && (
         <Pressable
           style={styles.authOverlay}
@@ -235,24 +239,20 @@ export default function VideoCard({ item, isActive }: any) {
   );
 }
 
+/* estilos sin cambios */
 const styles = StyleSheet.create({
   container: { height, backgroundColor: "black" },
-
   video: { width: "100%", height: "100%", position: "absolute" },
-
   touchLayer: { ...StyleSheet.absoluteFillObject },
-
   pauseOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.3)",
   },
-
   playOverlay: {
     position: "absolute",
     top: "40%",
     left: "40%",
   },
-
   voteContainer: {
     position: "absolute",
     bottom: 180,
@@ -261,7 +261,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 10,
   },
-
   option: {
     flex: 1,
     backgroundColor: "rgba(255,255,255,0.2)",
@@ -269,10 +268,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: "center",
   },
-
   optionText: { color: "white", fontWeight: "bold" },
   percent: { color: "white" },
-
   actions: {
     position: "absolute",
     right: 10,
@@ -280,23 +277,18 @@ const styles = StyleSheet.create({
     gap: 20,
     alignItems: "center",
   },
-
   descriptionWrapper: {
     position: "absolute",
     bottom: 16,
     left: 15,
     right: 100,
   },
-
   count: { color: "white", fontSize: 12 },
-
   sliderContainer: {
     position: "absolute",
     bottom: 20,
     width: "100%",
   },
-
-  // 🔥 NUEVO ESTILO MODAL
   authOverlay: {
     position: "absolute",
     top: 0,
@@ -307,7 +299,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-
   authBox: {
     width: "85%",
     backgroundColor: "#111",
@@ -315,7 +306,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: "center",
   },
-
   authText: {
     color: "white",
     fontSize: 18,
@@ -323,14 +313,12 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     textAlign: "center",
   },
-
   authButton: {
     backgroundColor: "#ff2d55",
     paddingVertical: 12,
     paddingHorizontal: 30,
     borderRadius: 10,
   },
-
   authButtonText: {
     color: "white",
     fontWeight: "bold",
