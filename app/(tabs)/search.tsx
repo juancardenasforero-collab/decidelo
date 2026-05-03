@@ -5,227 +5,321 @@ import {
   TextInput,
   FlatList,
   TouchableOpacity,
-  Image,
   StyleSheet,
-  Modal,
+  Pressable,
 } from "react-native";
 
+import { Ionicons } from "@expo/vector-icons";
+import { VideoView, useVideoPlayer } from "expo-video";
+
+import CommentsModal from "../../components/CommentsModal";
+
 /* ================= TYPES ================= */
-type Video = {
+type VideoItem = {
   id: string;
   title: string;
-  thumbnail: string;
+  uri: any;
+  user: string;
 };
 
-/* ================= COMPONENT ================= */
-export default function Home() {
-  const [search, setSearch] = useState<string>("");
+/* ================= SCREEN ================= */
+export default function SearchScreen() {
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<VideoItem | null>(null);
 
   const [history, setHistory] = useState<string[]>([
-    "perros graciosos",
-    "gym motivación",
-    "comida callejera",
+    "perros",
+    "gym",
+    "comida",
   ]);
 
-  const [results, setResults] = useState<Video[]>([]);
-  const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
+  const [results, setResults] = useState<VideoItem[]>([]);
+  const [commentsVisible, setCommentsVisible] = useState(false);
 
-  const [feedPaused, setFeedPaused] = useState<boolean>(false);
-
-  /* 🔎 SEARCH */
-  const executeSearch = () => {
+  const handleSearch = () => {
     if (!search.trim()) return;
 
-    setHistory((prev) => {
-      const updated = [search, ...prev.filter((h) => h !== search)];
-      return updated.slice(0, 10);
-    });
+    setHistory((p) => [search, ...p.filter((h) => h !== search)]);
 
-    const fakeResults: Video[] = Array.from({ length: 12 }).map((_, i) => ({
-      id: i.toString(),
-      title: `${search} video ${i + 1}`,
-      thumbnail: `https://picsum.photos/400/400?random=${i}`,
+    const fake = Array.from({ length: 8 }).map((_, i) => ({
+      id: String(i),
+      title: `${search} video ${i}`,
+      uri: require("../../assets/video/decidelo.mp4"),
+      user: "usuario_" + i,
     }));
 
-    setResults(fakeResults);
-  };
-
-  /* 🎬 OPEN VIDEO */
-  const openVideo = (video: Video) => {
-    setSelectedVideo(video);
-    setFeedPaused(true); // 🔥 pausa todo el feed (evita audio)
-  };
-
-  /* ❌ CLOSE VIDEO */
-  const closeVideo = () => {
-    setSelectedVideo(null);
-    setFeedPaused(false);
+    setResults(fake);
   };
 
   return (
     <View style={styles.container}>
-      {/* 🔎 SEARCH BAR */}
-      <View style={styles.searchBox}>
-        <Text style={styles.icon}>⌕</Text>
 
+      {/* 🔎 SEARCH SIEMPRE ARRIBA */}
+      <View style={styles.searchBox}>
         <TextInput
-          placeholder="Buscar"
-          placeholderTextColor="#666"
+          placeholder="Buscar videos..."
+          placeholderTextColor="#777"
           value={search}
           onChangeText={setSearch}
-          onSubmitEditing={executeSearch}
+          onSubmitEditing={handleSearch}
           style={styles.input}
         />
-
-        <Text style={styles.icon}>🎙</Text>
       </View>
 
-      {/* 🟡 SEARCH VIEW (HISTORIAL + GRID) */}
-      {!selectedVideo && (
-        <>
-          {/* HISTORIAL */}
-          <View style={styles.historyContainer}>
-            {history.map((item, index) => (
-              <TouchableOpacity
-                key={index}
-                onPress={() => setSearch(item)}
-                style={styles.historyItem}
-              >
-                <Text style={styles.historyText}>{item}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+      {/* 📌 HISTORIAL */}
+      <View style={styles.history}>
+        {history.map((h, i) => (
+          <Text key={i} style={{ color: "#888" }}>{h}</Text>
+        ))}
+      </View>
 
-          {/* GRID */}
-          <FlatList
-            data={results}
-            keyExtractor={(item) => item.id}
-            numColumns={3}
-            showsVerticalScrollIndicator={false}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.videoBox}
-                onPress={() => openVideo(item)}
-              >
-                <Image source={{ uri: item.thumbnail }} style={styles.image} />
-                <Text numberOfLines={1} style={styles.videoTitle}>
-                  {item.title}
-                </Text>
-              </TouchableOpacity>
-            )}
-          />
-        </>
+      {/* GRID VIDEOS */}
+      <FlatList
+        data={results}
+        numColumns={2}
+        keyExtractor={(i) => i.id}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            style={styles.card}
+            onPress={() => setSelected(item)}
+          >
+            <Text style={{ color: "white" }}>{item.title}</Text>
+          </TouchableOpacity>
+        )}
+      />
+
+      {/* 🎬 FULLSCREEN VIDEO */}
+      {selected && (
+        <VideoPlayer
+          item={selected}
+          onClose={() => setSelected(null)}
+          openComments={() => setCommentsVisible(true)}
+        />
       )}
 
-      {/* 🎬 FULLSCREEN PLAYER */}
-      <Modal visible={!!selectedVideo} animationType="fade">
-        <View style={styles.player}>
-          <View style={styles.videoArea}>
-            <Text style={styles.videoText}>🎬 REPRODUCIENDO</Text>
-            <Text style={styles.videoSub}>{selectedVideo?.title}</Text>
-          </View>
+      {/* 💬 COMMENTS MODAL */}
+      <CommentsModal
+        visible={commentsVisible}
+        onClose={() => setCommentsVisible(false)}
+        videoId={selected?.id}
+      />
 
-          <TouchableOpacity style={styles.backBtn} onPress={closeVideo}>
-            <Text style={{ color: "#fff" }}>← Volver</Text>
-          </TouchableOpacity>
-        </View>
-      </Modal>
     </View>
   );
 }
 
-/* ================= STYLES (TIKTOK DARK) ================= */
+/* ================= VIDEO PLAYER (TIKTOK STYLE REAL) ================= */
+function VideoPlayer({ item, onClose, openComments }: any) {
+
+  const [liked, setLiked] = useState(false);
+  const [likes, setLikes] = useState(120);
+  const [paused, setPaused] = useState(false);
+
+  const [votes, setVotes] = useState({ a: 60, b: 40 });
+
+  const player = useVideoPlayer(item.uri, (p) => {
+    p.loop = true;
+    p.play();
+  });
+
+  const togglePlay = () => {
+    if (paused) {
+      player.play();
+      setPaused(false);
+    } else {
+      player.pause();
+      setPaused(true);
+    }
+  };
+
+  const toggleLike = () => {
+    setLiked(!liked);
+    setLikes((p) => p + (liked ? -1 : 1));
+  };
+
+  const vote = (type: "a" | "b") => {
+    setVotes((prev) => {
+      if (type === "a") {
+        return {
+          a: prev.a + 1,
+          b: Math.max(0, prev.b - 1),
+        };
+      }
+      return {
+        a: Math.max(0, prev.a - 1),
+        b: prev.b + 1,
+      };
+    });
+  };
+
+  const total = votes.a + votes.b;
+  const pA = Math.round((votes.a / total) * 100);
+  const pB = Math.round((votes.b / total) * 100);
+
+  return (
+    <View style={styles.full}>
+
+      {/* VIDEO */}
+      <VideoView
+        style={styles.video}
+        player={player}
+        contentFit="cover"
+      />
+
+      {/* TAP PLAY/PAUSE */}
+      <Pressable style={styles.touch} onPress={togglePlay} />
+
+      {/* BACK */}
+      <Pressable style={styles.back} onPress={onClose}>
+        <Ionicons name="close" size={32} color="white" />
+      </Pressable>
+
+      {/* 👤 USER */}
+      <View style={styles.user}>
+        <View style={styles.avatar} />
+        <Text style={{ color: "white" }}>{item.user}</Text>
+        <Pressable style={styles.follow}>
+          <Text style={{ color: "white" }}>Seguir</Text>
+        </Pressable>
+      </View>
+
+      {/* ❤️ RIGHT ACTIONS */}
+      <View style={styles.actions}>
+
+        <Pressable onPress={toggleLike}>
+          <Ionicons
+            name={liked ? "heart" : "heart-outline"}
+            size={34}
+            color={liked ? "red" : "white"}
+          />
+          <Text style={{ color: "white" }}>{likes}</Text>
+        </Pressable>
+
+        <Pressable onPress={openComments}>
+          <Ionicons name="chatbubble-outline" size={34} color="white" />
+        </Pressable>
+
+        <Ionicons name="share-social-outline" size={34} color="white" />
+
+        {/* 🗳 VOTOS */}
+        <View style={{ marginTop: 10 }}>
+          <Pressable onPress={() => vote("a")}>
+            <Text style={{ color: "white" }}>Sí {pA}%</Text>
+          </Pressable>
+
+          <Pressable onPress={() => vote("b")}>
+            <Text style={{ color: "white" }}>No {pB}%</Text>
+          </Pressable>
+        </View>
+
+      </View>
+
+      {/* 📝 DESCRIPTION */}
+      <View style={styles.desc}>
+        <Text style={{ color: "white", fontWeight: "bold" }}>
+          {item.title}
+        </Text>
+        <Text style={{ color: "#aaa" }}>
+          descripción estilo TikTok con usuario real
+        </Text>
+      </View>
+
+    </View>
+  );
+}
+
+/* ================= STYLES ================= */
 const styles = StyleSheet.create({
+
   container: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: "black",
     paddingTop: 50,
-    paddingHorizontal: 10,
   },
 
-  /* SEARCH */
   searchBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#121212",
-    borderRadius: 30,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: "#1f1f1f",
+    padding: 10,
   },
 
   input: {
-    flex: 1,
-    color: "#fff",
-    marginHorizontal: 10,
-  },
-
-  icon: {
-    color: "#bbb",
-    fontSize: 18,
-  },
-
-  /* HISTORY */
-  historyContainer: {
-    marginBottom: 10,
-  },
-
-  historyItem: {
-    paddingVertical: 6,
-    borderBottomColor: "#222",
-    borderBottomWidth: 1,
-  },
-
-  historyText: {
-    color: "#aaa",
-  },
-
-  /* GRID */
-  videoBox: {
-    flex: 1,
-    margin: 3,
-  },
-
-  image: {
-    width: "100%",
-    height: 120,
+    backgroundColor: "#111",
+    color: "white",
+    padding: 10,
     borderRadius: 10,
   },
 
-  videoTitle: {
-    fontSize: 10,
-    color: "#aaa",
+  history: {
+    paddingHorizontal: 10,
+    marginBottom: 10,
   },
 
-  /* PLAYER */
-  player: {
+  card: {
     flex: 1,
-    backgroundColor: "#000",
-  },
-
-  videoArea: {
-    flex: 1,
+    margin: 5,
+    height: 120,
+    backgroundColor: "#222",
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#111",
+    borderRadius: 10,
   },
 
-  videoText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "bold",
+  full: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "black",
   },
 
-  videoSub: {
-    color: "#888",
-    marginTop: 10,
+  video: {
+    width: "100%",
+    height: "100%",
+    position: "absolute",
   },
 
-  backBtn: {
+  touch: {
+    ...StyleSheet.absoluteFillObject,
+  },
+
+  back: {
     position: "absolute",
     top: 50,
-    left: 20,
+    left: 15,
+  },
+
+  user: {
+    position: "absolute",
+    bottom: 180,
+    left: 15,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "gray",
+  },
+
+  follow: {
+    marginLeft: 10,
+    padding: 5,
+    borderWidth: 1,
+    borderColor: "white",
+    borderRadius: 5,
+  },
+
+  actions: {
+    position: "absolute",
+    right: 15,
+    bottom: 120,
+    alignItems: "center",
+    gap: 20,
+  },
+
+  desc: {
+    position: "absolute",
+    bottom: 30,
+    left: 15,
+    right: 80,
   },
 });
