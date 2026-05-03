@@ -11,12 +11,19 @@ import { useEffect, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import * as Sharing from "expo-sharing";
 import * as Haptics from "expo-haptics";
+import { useNavigation } from "@react-navigation/native";
+import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
 import VideoDescription from "./VideoDescription";
 import CommentsModal from "./CommentsModal";
 
 const { height } = Dimensions.get("window");
 
 export default function VideoCard({ item, isActive }: any) {
+  const navigation = useNavigation();
+  const router = useRouter();
+
   const [progress, setProgress] = useState(0);
   const [playing, setPlaying] = useState(false);
 
@@ -27,11 +34,24 @@ export default function VideoCard({ item, isActive }: any) {
 
   const [votes, setVotes] = useState({ a: 60, b: 40 });
 
+  const [showAuthAlert, setShowAuthAlert] = useState(false);
+
+  // 🔐 VALIDACIÓN REAL
+  const requireAuth = async () => {
+    const value = await AsyncStorage.getItem("isLogged");
+
+    if (value !== "true") {
+      setShowAuthAlert(true);
+      return false;
+    }
+
+    return true;
+  };
+
   const total = votes.a + votes.b;
   const percentA = total > 0 ? Math.round((votes.a / total) * 100) : 0;
   const percentB = total > 0 ? Math.round((votes.b / total) * 100) : 0;
 
-  // 🎬 VIDEO PLAYER
   const player = useVideoPlayer(item.uri, (player) => {
     player.loop = true;
 
@@ -40,7 +60,6 @@ export default function VideoCard({ item, isActive }: any) {
     });
   });
 
-  // ▶️ autoplay por scroll
   useEffect(() => {
     if (isActive) {
       player.play();
@@ -51,7 +70,6 @@ export default function VideoCard({ item, isActive }: any) {
     }
   }, [isActive]);
 
-  // ⏱ progreso
   useEffect(() => {
     const interval = setInterval(() => {
       if (player.duration > 0) {
@@ -62,21 +80,24 @@ export default function VideoCard({ item, isActive }: any) {
     return () => clearInterval(interval);
   }, []);
 
-  // ▶️ play / pause
   const togglePlay = () => {
     if (!isActive) return;
     player.playing ? player.pause() : player.play();
   };
 
-  // ❤️ like
-  const handleLike = () => {
+  // ❤️ LIKE
+  const handleLike = async () => {
+    if (!(await requireAuth())) return;
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setLikes((prev) => (liked ? prev - 1 : prev + 1));
     setLiked(!liked);
   };
 
-  // 🗳 votar
-  const handleVote = (option: "a" | "b") => {
+  // 🗳 VOTO
+  const handleVote = async (option: "a" | "b") => {
+    if (!(await requireAuth())) return;
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     setVotes((prev) => {
@@ -94,15 +115,14 @@ export default function VideoCard({ item, isActive }: any) {
     });
   };
 
-  // 📤 share
+  // 📤 SHARE
   const handleShare = async () => {
+    if (!(await requireAuth())) return;
     await Sharing.shareAsync(item.uri);
   };
 
   return (
     <View style={styles.container}>
-      
-      {/* 🎬 VIDEO */}
       <VideoView
         style={styles.video}
         player={player}
@@ -110,10 +130,8 @@ export default function VideoCard({ item, isActive }: any) {
         nativeControls={false}
       />
 
-      {/* 👆 TAP SOLO FONDO */}
       <Pressable style={styles.touchLayer} onPress={togglePlay} />
 
-      {/* ⏸ overlay */}
       {!playing && isActive && (
         <View style={styles.pauseOverlay} pointerEvents="none" />
       )}
@@ -124,33 +142,21 @@ export default function VideoCard({ item, isActive }: any) {
         </View>
       )}
 
-      {/* 🗳 VOTACIÓN */}
-      <View style={styles.voteContainer} pointerEvents="box-none">
-        <Pressable
-          style={({ pressed }) => [
-            styles.option,
-            { opacity: pressed ? 0.6 : 1 },
-          ]}
-          onPress={() => handleVote("a")}
-        >
+      {/* VOTACIÓN */}
+      <View style={styles.voteContainer}>
+        <Pressable style={styles.option} onPress={() => handleVote("a")}>
           <Text style={styles.optionText}>Sí</Text>
           <Text style={styles.percent}>{percentA}%</Text>
         </Pressable>
 
-        <Pressable
-          style={({ pressed }) => [
-            styles.option,
-            { opacity: pressed ? 0.6 : 1 },
-          ]}
-          onPress={() => handleVote("b")}
-        >
+        <Pressable style={styles.option} onPress={() => handleVote("b")}>
           <Text style={styles.optionText}>No</Text>
           <Text style={styles.percent}>{percentB}%</Text>
         </Pressable>
       </View>
 
-      {/* ❤️ ACCIONES */}
-      <View style={styles.actions} pointerEvents="box-none">
+      {/* ACCIONES */}
+      <View style={styles.actions}>
         <Pressable onPress={handleLike}>
           <Ionicons
             name={liked ? "heart" : "heart-outline"}
@@ -160,8 +166,12 @@ export default function VideoCard({ item, isActive }: any) {
           <Text style={styles.count}>{likes}</Text>
         </Pressable>
 
-        {/* 💬 ABRE COMMENTS MODAL */}
-        <Pressable onPress={() => setCommentsVisible(true)}>
+        <Pressable
+          onPress={async () => {
+            if (!(await requireAuth())) return;
+            setCommentsVisible(true);
+          }}
+        >
           <Ionicons name="chatbubble-outline" size={30} color="white" />
         </Pressable>
 
@@ -170,15 +180,10 @@ export default function VideoCard({ item, isActive }: any) {
         </Pressable>
       </View>
 
-      {/* 📝 DESCRIPCIÓN */}
-      <View style={styles.descriptionWrapper} pointerEvents="box-none">
-        <VideoDescription
-          user={item.user}
-          description={item.description}
-        />
+      <View style={styles.descriptionWrapper}>
+        <VideoDescription user={item.user} description={item.description} />
       </View>
 
-      {/* ⏱ SLIDER */}
       {!playing && isActive && (
         <View style={styles.sliderContainer}>
           <Slider
@@ -195,12 +200,37 @@ export default function VideoCard({ item, isActive }: any) {
         </View>
       )}
 
-      {/* 🔥 AQUÍ ESTÁ LA CLAVE */}
+      {/* 🔥 MODAL LOGIN */}
+      {showAuthAlert && (
+        <Pressable
+          style={styles.authOverlay}
+          onPress={() => setShowAuthAlert(false)}
+        >
+          <Pressable style={styles.authBox}>
+            <Text style={styles.authText}>
+              Regístrate para interactuar
+            </Text>
+
+            <Pressable
+              onPress={() => {
+                setShowAuthAlert(false);
+                router.push("/auth");
+              }}
+              style={styles.authButton}
+            >
+              <Text style={styles.authButtonText}>
+                Registrarme
+              </Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      )}
+
       <CommentsModal
-  visible={commentsVisible}
-  onClose={() => setCommentsVisible(false)}
-  videoId={item.id}
-/>
+        visible={commentsVisible}
+        onClose={() => setCommentsVisible(false)}
+        videoId={item.id}
+      />
     </View>
   );
 }
@@ -208,28 +238,19 @@ export default function VideoCard({ item, isActive }: any) {
 const styles = StyleSheet.create({
   container: { height, backgroundColor: "black" },
 
-  video: {
-    width: "100%",
-    height: "100%",
-    position: "absolute",
-  },
+  video: { width: "100%", height: "100%", position: "absolute" },
 
-  touchLayer: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 1,
-  },
+  touchLayer: { ...StyleSheet.absoluteFillObject },
 
   pauseOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.3)",
-    zIndex: 2,
   },
 
   playOverlay: {
     position: "absolute",
     top: "40%",
     left: "40%",
-    zIndex: 3,
   },
 
   voteContainer: {
@@ -239,7 +260,6 @@ const styles = StyleSheet.create({
     right: 15,
     flexDirection: "row",
     gap: 10,
-    zIndex: 4,
   },
 
   option: {
@@ -251,7 +271,7 @@ const styles = StyleSheet.create({
   },
 
   optionText: { color: "white", fontWeight: "bold" },
-  percent: { color: "white", marginTop: 5 },
+  percent: { color: "white" },
 
   actions: {
     position: "absolute",
@@ -259,7 +279,6 @@ const styles = StyleSheet.create({
     bottom: 150,
     gap: 20,
     alignItems: "center",
-    zIndex: 4,
   },
 
   descriptionWrapper: {
@@ -267,7 +286,6 @@ const styles = StyleSheet.create({
     bottom: 16,
     left: 15,
     right: 100,
-    zIndex: 5,
   },
 
   count: { color: "white", fontSize: 12 },
@@ -276,6 +294,45 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 20,
     width: "100%",
-    zIndex: 4,
+  },
+
+  // 🔥 NUEVO ESTILO MODAL
+  authOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.85)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  authBox: {
+    width: "85%",
+    backgroundColor: "#111",
+    padding: 25,
+    borderRadius: 20,
+    alignItems: "center",
+  },
+
+  authText: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 15,
+    textAlign: "center",
+  },
+
+  authButton: {
+    backgroundColor: "#ff2d55",
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 10,
+  },
+
+  authButtonText: {
+    color: "white",
+    fontWeight: "bold",
   },
 });
