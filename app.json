@@ -45,6 +45,11 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+
+    "android": {
+      "softwareKeyboardLayoutMode": "pan"
     }
   }
+
 }
