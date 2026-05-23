@@ -1,4 +1,8 @@
-import React, { useRef, useState } from "react";
+import React, {
+  useRef,
+  useState,
+  useEffect,
+} from "react";
 
 import {
   View,
@@ -17,6 +21,7 @@ import {
   CameraView,
   CameraType,
   useCameraPermissions,
+  useMicrophonePermissions,
 } from "expo-camera";
 
 import * as ImagePicker from "expo-image-picker";
@@ -30,6 +35,11 @@ export default function CreateScreen() {
 
   const [permission, requestPermission] =
     useCameraPermissions();
+
+  const [
+    microphonePermission,
+    requestMicrophonePermission,
+  ] = useMicrophonePermissions();
 
   const cameraRef = useRef<any>(null);
 
@@ -70,13 +80,21 @@ export default function CreateScreen() {
   const [duration, setDuration] =
     useState("24h");
 
-  /* ================= OPEN CAMERA ================= */
+  /* ================= PERMISSIONS ================= */
 
   const openPermissions = async () => {
     if (!permission?.granted) {
       await requestPermission();
     }
+
+    if (!microphonePermission?.granted) {
+      await requestMicrophonePermission();
+    }
   };
+
+  useEffect(() => {
+    openPermissions();
+  }, []);
 
   /* ================= PHOTO ================= */
 
@@ -101,6 +119,14 @@ export default function CreateScreen() {
 
   const startRecording = async () => {
     try {
+      const mic =
+        await requestMicrophonePermission();
+
+      if (!mic.granted) {
+        alert("Debes permitir el micrófono");
+        return;
+      }
+
       if (!cameraRef.current) return;
 
       setRecording(true);
@@ -193,8 +219,6 @@ export default function CreateScreen() {
 
     console.log("POST:", newPost);
 
-    // 🔥 luego aquí va backend/firebase
-
     alert("Publicado 🔥");
 
     setMedia(null);
@@ -211,8 +235,6 @@ export default function CreateScreen() {
   if (media) {
     return (
       <View style={styles.previewContainer}>
-        {/* MEDIA */}
-
         {mediaType === "video" ? (
           <Video
             source={{ uri: media }}
@@ -229,8 +251,6 @@ export default function CreateScreen() {
           />
         )}
 
-        {/* TOP */}
-
         <View style={styles.topBar}>
           <Pressable
             onPress={() => setMedia(null)}
@@ -242,8 +262,6 @@ export default function CreateScreen() {
             />
           </Pressable>
         </View>
-
-        {/* FORM */}
 
         <ScrollView
           style={styles.form}
@@ -343,8 +361,6 @@ export default function CreateScreen() {
         mode={mode === "photo" ? "picture" : "video"}
       />
 
-      {/* TIMER */}
-
       {recording && (
         <View style={styles.timerBox}>
           <View style={styles.redDot} />
@@ -354,8 +370,6 @@ export default function CreateScreen() {
           </Text>
         </View>
       )}
-
-      {/* TOP */}
 
       <View style={styles.header}>
         <Pressable
@@ -374,8 +388,6 @@ export default function CreateScreen() {
           />
         </Pressable>
       </View>
-
-      {/* MODES */}
 
       <View style={styles.modes}>
         <Pressable
@@ -415,11 +427,7 @@ export default function CreateScreen() {
         </Pressable>
       </View>
 
-      {/* BOTTOM */}
-
       <View style={styles.bottom}>
-        {/* GALLERY */}
-
         <Pressable onPress={openGallery}>
           <Ionicons
             name="images"
@@ -427,8 +435,6 @@ export default function CreateScreen() {
             color="white"
           />
         </Pressable>
-
-        {/* RECORD */}
 
         {mode === "photo" ? (
           <Pressable
@@ -455,8 +461,6 @@ export default function CreateScreen() {
             }}
           />
         )}
-
-        {/* EMPTY */}
 
         <View style={{ width: 34 }} />
       </View>
