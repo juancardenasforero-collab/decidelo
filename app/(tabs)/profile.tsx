@@ -1,198 +1,881 @@
-import React, { useState } from "react";
-import { View, Text, Image, TouchableOpacity, StyleSheet, FlatList, Dimensions, Modal } from "react-native";
+import React, { useEffect, useState } from "react";
+
+import {
+  View,
+  Text,
+  Image,
+  TouchableOpacity,
+  StyleSheet,
+  FlatList,
+  Dimensions,
+  Modal,
+  Pressable,
+  ActivityIndicator,
+} from "react-native";
+
 import { Ionicons } from "@expo/vector-icons";
+
 import * as ImagePicker from "expo-image-picker";
-import { Video } from "expo-av"; // reproductor de video
+
+import { Video, ResizeMode } from "expo-av";
+
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { useRouter } from "expo-router";
 
 const { width } = Dimensions.get("window");
 
 export default function Profile() {
-  const [menuVisible, setMenuVisible] = useState(false);
-  const [avatar, setAvatar] = useState("https://via.placeholder.com/150");
+  const insets = useSafeAreaInsets();
 
-  const user = {
+  const router = useRouter();
+
+  const [menuVisible, setMenuVisible] =
+    useState(false);
+
+  const [loading, setLoading] =
+    useState(false);
+
+  const [refresh, setRefresh] =
+    useState(false);
+
+  /* ================= USER ================= */
+
+  const [user, setUser] = useState({
+    id: "1",
+
     name: "Juan Pérez",
+
     username: "@juanp",
+
+    bio: "Tomando decisiones malas profesionalmente 😂",
+
+    avatar:
+      "https://i.pravatar.cc/300",
+
     followers: 1200,
+
     following: 300,
+
     likes: 4500,
-    videos: [
-      { id: "1", source:require("../../assets/video/decidelo.mp4")},
-    ],
+
+    videos: [],
+  });
+
+  /* ================= LOAD ================= */
+
+  useEffect(() => {
+    loadProfile();
+
+    loadVideos();
+  }, [refresh]);
+
+  /* ================= LOAD PROFILE ================= */
+
+  const loadProfile = async () => {
+    try {
+      const savedAvatar =
+        await AsyncStorage.getItem(
+          "profile_avatar"
+        );
+
+      if (savedAvatar) {
+        setUser((prev) => ({
+          ...prev,
+          avatar: savedAvatar,
+        }));
+      }
+    } catch (e) {
+      console.log(e);
+    }
   };
 
-  // Abrir galería para cambiar foto
-  const pickImage = async () => {
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    });
+  /* ================= LOAD VIDEOS ================= */
 
-    if (!result.canceled) {
-      setAvatar(result.assets[0].uri);
+  const loadVideos = async () => {
+    try {
+      const savedVideos =
+        await AsyncStorage.getItem(
+          "user_videos"
+        );
+
+      if (savedVideos) {
+        setUser((prev) => ({
+          ...prev,
+          videos: JSON.parse(savedVideos),
+        }));
+      }
+    } catch (e) {
+      console.log(e);
     }
+  };
+
+  /* ================= CHANGE PHOTO ================= */
+
+  const pickImage = async () => {
+    try {
+      const result =
+        await ImagePicker.launchImageLibraryAsync({
+          mediaTypes:
+            ImagePicker.MediaTypeOptions.Images,
+
+          allowsEditing: true,
+
+          aspect: [1, 1],
+
+          quality: 1,
+        });
+
+      if (!result.canceled) {
+        const uri = result.assets[0].uri;
+
+        setLoading(true);
+
+        await AsyncStorage.setItem(
+          "profile_avatar",
+          uri
+        );
+
+        setUser((prev) => ({
+          ...prev,
+          avatar: uri,
+        }));
+
+        setLoading(false);
+      }
+    } catch (e) {
+      console.log(e);
+
+      setLoading(false);
+    }
+  };
+
+  /* ================= DELETE VIDEO ================= */
+
+  const deleteVideo = async (
+    id: string
+  ) => {
+    try {
+      const updatedVideos =
+        user.videos.filter(
+          (video: any) =>
+            video.id !== id
+        );
+
+      await AsyncStorage.setItem(
+        "user_videos",
+        JSON.stringify(updatedVideos)
+      );
+
+      setUser((prev) => ({
+        ...prev,
+        videos: updatedVideos,
+      }));
+    } catch (e) {
+      console.log(e);
+    }
+  };
+
+  /* ================= VIDEO ITEM ================= */
+
+  const renderVideo = ({ item }: any) => {
+    return (
+      <Pressable
+        style={styles.videoCard}
+        onPress={() =>
+          router.push({
+            pathname: "/video/[id]",
+
+            params: {
+              id: item.id,
+
+              uri: item.uri,
+
+              username:
+                item.username ||
+                user.username,
+
+              description:
+                item.description ||
+
+                "Sin descripción",
+
+              likes:
+                String(item.likes || 0),
+
+              comments:
+                String(
+                  item.comments || 0
+                ),
+
+              shares:
+                String(
+                  item.shares || 0
+                ),
+            },
+          })
+        }
+      >
+        {/* VIDEO */}
+
+        <Video
+          source={{ uri: item.uri }}
+          style={styles.videoThumbnail}
+          resizeMode={ResizeMode.COVER}
+          shouldPlay={false}
+          isLooping
+          isMuted
+        />
+
+        {/* PLAY ICON */}
+
+        <View style={styles.videoOverlay}>
+          <Ionicons
+            name="play"
+            size={20}
+            color="white"
+          />
+        </View>
+
+        {/* LIKES */}
+
+        <View style={styles.likesOverlay}>
+          <Ionicons
+            name="heart"
+            size={12}
+            color="white"
+          />
+
+          <Text style={styles.likesText}>
+            {item.likes || 0}
+          </Text>
+        </View>
+
+        {/* DELETE */}
+
+        <Pressable
+          style={styles.deleteBtn}
+          onPress={() =>
+            deleteVideo(item.id)
+          }
+        >
+          <Ionicons
+            name="trash"
+            size={16}
+            color="white"
+          />
+        </Pressable>
+      </Pressable>
+    );
   };
 
   return (
     <View style={styles.container}>
-      {/* Barra superior con engranaje */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => setMenuVisible(true)}>
-          <Ionicons name="settings-outline" size={30} color="white" />
+      {/* ================= HEADER ================= */}
+
+      <View
+        style={[
+          styles.header,
+
+          {
+            paddingTop:
+              insets.top + 10,
+          },
+        ]}
+      >
+        <TouchableOpacity
+          onPress={() =>
+            setMenuVisible(true)
+          }
+        >
+          <Ionicons
+            name="menu"
+            size={28}
+            color="white"
+          />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Perfil</Text>
-        <View style={{ width: 30 }} />
-      </View>
 
-      {/* Imagen de perfil con botón + */}
-      <View style={styles.avatarWrapper}>
-        <Image source={{ uri: avatar }} style={styles.avatar} />
-        <TouchableOpacity style={styles.addButton} onPress={pickImage}>
-          <Text style={styles.addText}>+</Text>
+        <Text style={styles.headerTitle}>
+          {user.username}
+        </Text>
+
+        <TouchableOpacity
+          onPress={() =>
+            setRefresh(!refresh)
+          }
+        >
+          <Ionicons
+            name="refresh"
+            size={26}
+            color="white"
+          />
         </TouchableOpacity>
       </View>
 
-      {/* Nombre y usuario */}
-      <Text style={styles.name}>{user.name}</Text>
-      <Text style={styles.username}>{user.username}</Text>
+      {/* ================= PROFILE ================= */}
 
-      {/* Estadísticas */}
-      <View style={styles.statsContainer}>
-        <View style={styles.stat}>
-          <Text style={styles.statNumber}>{user.followers}</Text>
-          <Text style={styles.statLabel}>Seguidores</Text>
-        </View>
-        <View style={styles.stat}>
-          <Text style={styles.statNumber}>{user.following}</Text>
-          <Text style={styles.statLabel}>Siguiendo</Text>
-        </View>
-        <View style={styles.stat}>
-          <Text style={styles.statNumber}>{user.likes}</Text>
-          <Text style={styles.statLabel}>Me gusta</Text>
-        </View>
-      </View>
-
-      {/* Mosaico de videos */}
       <FlatList
         data={user.videos}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item: any) =>
+          item.id
+        }
         numColumns={3}
-        renderItem={({ item }) => (
-          <Video
-            source={item.source}
-            style={styles.videoThumbnail}
-            resizeMode="cover"
-            isLooping
-            shouldPlay={false} // no se reproducen automáticamente
-          />
-        )}
-        contentContainerStyle={styles.videoGrid}
+        renderItem={renderVideo}
+        showsVerticalScrollIndicator={
+          false
+        }
+        ListEmptyComponent={
+          <View
+            style={styles.emptyContainer}
+          >
+            <Ionicons
+              name="videocam-outline"
+              size={70}
+              color="#444"
+            />
+
+            <Text style={styles.emptyText}>
+              Aún no has publicado
+              videos
+            </Text>
+
+            <Text
+              style={
+                styles.emptySubText
+              }
+            >
+              Ve al botón + y crea
+              tu primer video 🔥
+            </Text>
+          </View>
+        }
+        ListHeaderComponent={
+          <>
+            {/* PHOTO */}
+
+            <View
+              style={
+                styles.avatarWrapper
+              }
+            >
+              <Image
+                source={{
+                  uri: user.avatar,
+                }}
+                style={styles.avatar}
+              />
+
+              <TouchableOpacity
+                style={
+                  styles.editAvatar
+                }
+                onPress={pickImage}
+              >
+                {loading ? (
+                  <ActivityIndicator
+                    color="white"
+                  />
+                ) : (
+                  <Ionicons
+                    name="camera"
+                    size={18}
+                    color="white"
+                  />
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {/* NAME */}
+
+            <Text style={styles.name}>
+              {user.name}
+            </Text>
+
+            <Text
+              style={styles.username}
+            >
+              {user.username}
+            </Text>
+
+            <Text style={styles.bio}>
+              {user.bio}
+            </Text>
+
+            {/* STATS */}
+
+            <View
+              style={
+                styles.statsContainer
+              }
+            >
+              <View style={styles.stat}>
+                <Text
+                  style={
+                    styles.statNumber
+                  }
+                >
+                  {user.followers}
+                </Text>
+
+                <Text
+                  style={
+                    styles.statLabel
+                  }
+                >
+                  Seguidores
+                </Text>
+              </View>
+
+              <View style={styles.stat}>
+                <Text
+                  style={
+                    styles.statNumber
+                  }
+                >
+                  {user.following}
+                </Text>
+
+                <Text
+                  style={
+                    styles.statLabel
+                  }
+                >
+                  Siguiendo
+                </Text>
+              </View>
+
+              <View style={styles.stat}>
+                <Text
+                  style={
+                    styles.statNumber
+                  }
+                >
+                  {user.likes}
+                </Text>
+
+                <Text
+                  style={
+                    styles.statLabel
+                  }
+                >
+                  Likes
+                </Text>
+              </View>
+            </View>
+
+            {/* BUTTONS */}
+
+            <View
+              style={
+                styles.buttonsRow
+              }
+            >
+              <TouchableOpacity
+                style={
+                  styles.editButton
+                }
+              >
+                <Text
+                  style={
+                    styles.editButtonText
+                  }
+                >
+                  Editar perfil
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={
+                  styles.shareButton
+                }
+              >
+                <Ionicons
+                  name="share-social-outline"
+                  size={20}
+                  color="white"
+                />
+              </TouchableOpacity>
+            </View>
+
+            {/* TAB */}
+
+            <View
+              style={
+                styles.tabContainer
+              }
+            >
+              <Ionicons
+                name="grid-outline"
+                size={26}
+                color="white"
+              />
+            </View>
+          </>
+        }
       />
 
-      {/* Modal de ajustes */}
-      <Modal visible={menuVisible} animationType="slide" transparent={true}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Ajustes</Text>
+      {/* ================= SETTINGS ================= */}
 
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Cuenta</Text>
-              <Text style={styles.option}>Privacidad</Text>
-              <Text style={styles.option}>Seguridad</Text>
-              <Text style={styles.option}>Permisos</Text>
-              <Text style={styles.option}>Compartir perfil</Text>
-            </View>
+      <Modal
+        visible={menuVisible}
+        animationType="slide"
+        transparent
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() =>
+            setMenuVisible(false)
+          }
+        >
+          <Pressable
+            style={[
+              styles.modalContent,
 
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Contenido de pantalla</Text>
-              <Text style={styles.option}>Idioma</Text>
-              <Text style={styles.option}>Estilo de pantalla</Text>
-              <Text style={styles.option}>Notificaciones</Text>
-            </View>
+              {
+                paddingBottom:
+                  insets.bottom + 20,
+              },
+            ]}
+          >
+            <View style={styles.modalBar} />
 
-            <TouchableOpacity style={styles.closeButton} onPress={() => setMenuVisible(false)}>
-              <Text style={{ color: "white" }}>Cerrar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+            <Text
+              style={styles.modalTitle}
+            >
+              Ajustes
+            </Text>
+
+            {[
+              {
+                icon:
+                  "person-outline",
+
+                label:
+                  "Editar perfil",
+              },
+
+              {
+                icon:
+                  "lock-closed-outline",
+
+                label: "Privacidad",
+              },
+
+              {
+                icon:
+                  "notifications-outline",
+
+                label:
+                  "Notificaciones",
+              },
+
+              {
+                icon:
+                  "shield-outline",
+
+                label: "Seguridad",
+              },
+
+              {
+                icon:
+                  "moon-outline",
+
+                label:
+                  "Modo oscuro",
+              },
+
+              {
+                icon:
+                  "log-out-outline",
+
+                label:
+                  "Cerrar sesión",
+              },
+            ].map((item, index) => (
+              <TouchableOpacity
+                key={index}
+                style={
+                  styles.menuItem
+                }
+              >
+                <Ionicons
+                  name={item.icon as any}
+                  size={22}
+                  color="white"
+                />
+
+                <Text
+                  style={
+                    styles.menuText
+                  }
+                >
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </Pressable>
+        </Pressable>
       </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#000" },
+  container: {
+    flex: 1,
+    backgroundColor: "black",
+  },
+
   header: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 15,
-    paddingTop: 50,
-    paddingBottom: 15,
+    justifyContent:
+      "space-between",
+    paddingHorizontal: 16,
+    paddingBottom: 10,
   },
-  headerTitle: { color: "white", fontSize: 18, fontWeight: "bold" },
+
+  headerTitle: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "700",
+  },
+
   avatarWrapper: {
     marginTop: 20,
     alignItems: "center",
-    justifyContent: "center",
-    position: "relative",
   },
+
   avatar: {
-    width: width * 0.3,
-    height: width * 0.3,
-    borderRadius: (width * 0.3) / 2,
-    borderWidth: 2,
-    borderColor: "white",
+    width: 110,
+    height: 110,
+    borderRadius: 100,
   },
-  addButton: {
+
+  editAvatar: {
     position: "absolute",
     bottom: 0,
-    right: 0,
-    backgroundColor: "#007AFF",
-    borderRadius: (width * 0.1) / 2,
-    width: width * 0.1,
-    height: width * 0.1,
+    right: width * 0.34,
+
+    width: 34,
+    height: 34,
+
+    borderRadius: 20,
+
+    backgroundColor:
+      "#ff2d55",
+
+    alignItems: "center",
+    justifyContent: "center",
+
+    borderWidth: 2,
+    borderColor: "black",
+  },
+
+  name: {
+    color: "white",
+    fontSize: 24,
+    fontWeight: "700",
+    textAlign: "center",
+    marginTop: 14,
+  },
+
+  username: {
+    color: "#aaa",
+    fontSize: 15,
+    textAlign: "center",
+    marginTop: 3,
+  },
+
+  bio: {
+    color: "white",
+    textAlign: "center",
+    marginTop: 12,
+    paddingHorizontal: 30,
+    lineHeight: 20,
+  },
+
+  statsContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: 24,
+  },
+
+  stat: {
+    alignItems: "center",
+    marginHorizontal: 24,
+  },
+
+  statNumber: {
+    color: "white",
+    fontSize: 22,
+    fontWeight: "700",
+  },
+
+  statLabel: {
+    color: "#999",
+    marginTop: 4,
+    fontSize: 13,
+  },
+
+  buttonsRow: {
+    flexDirection: "row",
+    justifyContent:
+      "center",
+    marginTop: 24,
+    gap: 10,
+  },
+
+  editButton: {
+    backgroundColor: "#1f1f1f",
+    paddingVertical: 12,
+    paddingHorizontal: 50,
+    borderRadius: 10,
+  },
+
+  editButtonText: {
+    color: "white",
+    fontWeight: "600",
+  },
+
+  shareButton: {
+    width: 46,
+    height: 46,
+    borderRadius: 10,
+    backgroundColor: "#1f1f1f",
     alignItems: "center",
     justifyContent: "center",
   },
-  addText: { color: "white", fontSize: width * 0.06 },
-  name: { fontSize: width * 0.05, fontWeight: "bold", marginTop: 10, color: "white", textAlign: "center" },
-  username: { fontSize: width * 0.04, color: "gray", textAlign: "center" },
-  statsContainer: { flexDirection: "row", justifyContent: "center", marginTop: 20 },
-  stat: { alignItems: "center", marginHorizontal: 15 },
-  statNumber: { fontSize: width * 0.045, fontWeight: "bold", color: "white" },
-  statLabel: { fontSize: width * 0.035, color: "gray" },
-  videoGrid: { paddingVertical: 20 },
-  videoThumbnail: {
-    width: width / 3 - 10,
-    height: width / 3 - 10,
-    margin: 5,
-    borderRadius: 8,
-    backgroundColor: "#222",
+
+  tabContainer: {
+    marginTop: 28,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: "#1a1a1a",
+    alignItems: "center",
   },
+
+  videoCard: {
+    width: width / 3,
+    height: width / 3 + 30,
+    padding: 1,
+  },
+
+  videoThumbnail: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#111",
+  },
+
+  videoOverlay: {
+    position: "absolute",
+    bottom: 8,
+    right: 8,
+  },
+
+  likesOverlay: {
+    position: "absolute",
+    left: 8,
+    bottom: 8,
+
+    flexDirection: "row",
+    alignItems: "center",
+
+    backgroundColor:
+      "rgba(0,0,0,0.5)",
+
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+
+    borderRadius: 20,
+  },
+
+  likesText: {
+    color: "white",
+    fontSize: 11,
+    marginLeft: 4,
+    fontWeight: "600",
+  },
+
+  deleteBtn: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+
+    width: 24,
+    height: 24,
+
+    borderRadius: 20,
+
+    backgroundColor:
+      "rgba(0,0,0,0.7)",
+
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  emptyContainer: {
+    marginTop: 60,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  emptyText: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "bold",
+    marginTop: 15,
+  },
+
+  emptySubText: {
+    color: "#777",
+    marginTop: 10,
+    textAlign: "center",
+    paddingHorizontal: 40,
+  },
+
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.7)",
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor:
+      "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
   },
+
   modalContent: {
-    backgroundColor: "#1c1c1c",
-    borderRadius: 10,
+    backgroundColor: "#121212",
+    borderTopLeftRadius: 25,
+    borderTopRightRadius: 25,
     padding: 20,
-    width: "80%",
   },
-  modalTitle: { color: "white", fontSize: 20, fontWeight: "bold", marginBottom: 15 },
-  section: { marginBottom: 15 },
-  sectionTitle: { color: "#007AFF", fontSize: 16, fontWeight: "bold", marginBottom: 5 },
-  option: { color: "white", fontSize: 14, marginVertical: 2 },
-  closeButton: {
-    marginTop: 10,
-    backgroundColor: "#007AFF",
-    padding: 10,
-    borderRadius: 5,
+
+  modalBar: {
+    width: 60,
+    height: 5,
+    borderRadius: 10,
+    backgroundColor: "#555",
+    alignSelf: "center",
+    marginBottom: 20,
+  },
+
+  modalTitle: {
+    color: "white",
+    fontSize: 22,
+    fontWeight: "700",
+    marginBottom: 20,
+  },
+
+  menuItem: {
+    flexDirection: "row",
     alignItems: "center",
+    paddingVertical: 18,
+    gap: 15,
+  },
+
+  menuText: {
+    color: "white",
+    fontSize: 16,
   },
 });

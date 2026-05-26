@@ -20,13 +20,15 @@ import { Ionicons } from "@expo/vector-icons";
 import {
   CameraView,
   CameraType,
-  useCameraPermissions,
+ useCameraPermissions,
   useMicrophonePermissions,
 } from "expo-camera";
 
 import * as ImagePicker from "expo-image-picker";
 
 import { Video, ResizeMode } from "expo-av";
+
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { width, height } = Dimensions.get("window");
 
@@ -190,44 +192,77 @@ export default function CreateScreen() {
 
   /* ================= PUBLISH ================= */
 
-  const publishPost = () => {
-    const newPost = {
-      id: Date.now().toString(),
+  const publishPost = async () => {
+    try {
+      const newPost = {
+        id: Date.now().toString(),
 
-      media,
+        uri: media,
 
-      mediaType,
+        mediaType,
 
-      description,
+        description,
 
-      optionA,
+        optionA,
 
-      optionB,
+        optionB,
 
-      votesA: 0,
+        votesA: 0,
 
-      votesB: 0,
+        votesB: 0,
 
-      duration,
+        duration,
 
-      createdAt: Date.now(),
+        createdAt: Date.now(),
 
-      user: {
-        name: "juan",
-      },
-    };
+        likes: 0,
 
-    console.log("POST:", newPost);
+        user: {
+          name: "juan",
+        },
+      };
 
-    alert("Publicado 🔥");
+      // OBTENER POSTS ACTUALES
 
-    setMedia(null);
+      const savedVideos =
+        await AsyncStorage.getItem(
+          "user_videos"
+        );
 
-    setDescription("");
+      const currentVideos = savedVideos
+        ? JSON.parse(savedVideos)
+        : [];
 
-    setOptionA("");
+      // AGREGAR NUEVO POST
 
-    setOptionB("");
+      const updatedVideos = [
+        newPost,
+        ...currentVideos,
+      ];
+
+      // GUARDAR
+
+      await AsyncStorage.setItem(
+        "user_videos",
+        JSON.stringify(updatedVideos)
+      );
+
+      alert("Publicado 🔥");
+
+      // LIMPIAR
+
+      setMedia(null);
+
+      setDescription("");
+
+      setOptionA("");
+
+      setOptionB("");
+
+      setDuration("24h");
+    } catch (e) {
+      console.log(e);
+    }
   };
 
   /* ================= PREVIEW ================= */
