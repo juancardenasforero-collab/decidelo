@@ -178,9 +178,73 @@ export default function Profile() {
     }
   };
 
+  /* ================= CHECK VOTING ================= */
+
+  const getVotingStatus = (
+    item: any
+  ) => {
+    const createdAt =
+      item.createdAt || Date.now();
+
+    const duration =
+      item.duration || "24h";
+
+    let durationMs = 24 * 60 * 60 * 1000;
+
+    if (duration === "1h") {
+      durationMs =
+        1 * 60 * 60 * 1000;
+    }
+
+    if (duration === "12h") {
+      durationMs =
+        12 * 60 * 60 * 1000;
+    }
+
+    if (duration === "24h") {
+      durationMs =
+        24 * 60 * 60 * 1000;
+    }
+
+    if (duration === "3d") {
+      durationMs =
+        3 * 24 * 60 * 60 * 1000;
+    }
+
+    const finished =
+      Date.now() >
+      createdAt + durationMs;
+
+    let winner = "Empate";
+
+    if (
+      (item.votesA || 0) >
+      (item.votesB || 0)
+    ) {
+      winner =
+        item.optionA || "Opción A";
+    }
+
+    if (
+      (item.votesB || 0) >
+      (item.votesA || 0)
+    ) {
+      winner =
+        item.optionB || "Opción B";
+    }
+
+    return {
+      finished,
+      winner,
+    };
+  };
+
   /* ================= VIDEO ITEM ================= */
 
   const renderVideo = ({ item }: any) => {
+    const voting =
+      getVotingStatus(item);
+
     return (
       <Pressable
         style={styles.videoCard}
@@ -199,7 +263,6 @@ export default function Profile() {
 
               description:
                 item.description ||
-
                 "Sin descripción",
 
               likes:
@@ -214,6 +277,28 @@ export default function Profile() {
                 String(
                   item.shares || 0
                 ),
+
+              optionA:
+                item.optionA || "",
+
+              optionB:
+                item.optionB || "",
+
+              votesA: String(
+                item.votesA || 0
+              ),
+
+              votesB: String(
+                item.votesB || 0
+              ),
+
+              duration:
+                item.duration || "24h",
+
+              createdAt: String(
+                item.createdAt ||
+                  Date.now()
+              ),
             },
           })
         }
@@ -250,6 +335,41 @@ export default function Profile() {
 
           <Text style={styles.likesText}>
             {item.likes || 0}
+          </Text>
+        </View>
+
+        {/* VOTES */}
+
+        <View style={styles.voteOverlay}>
+          <Text style={styles.voteText}>
+            🅰 {item.votesA || 0}
+          </Text>
+
+          <Text style={styles.voteText}>
+            🅱 {item.votesB || 0}
+          </Text>
+        </View>
+
+        {/* RESULT */}
+
+        <View
+          style={[
+            styles.resultOverlay,
+
+            {
+              backgroundColor:
+                voting.finished
+                  ? "#16a34a"
+                  : "#ff2d55",
+            },
+          ]}
+        >
+          <Text
+            style={styles.resultText}
+          >
+            {voting.finished
+              ? `Ganó: ${voting.winner}`
+              : "Votación activa"}
           </Text>
         </View>
 
@@ -798,6 +918,43 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginLeft: 4,
     fontWeight: "600",
+  },
+
+  voteOverlay: {
+    position: "absolute",
+    top: 8,
+    left: 8,
+
+    backgroundColor:
+      "rgba(0,0,0,0.7)",
+
+    borderRadius: 10,
+
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+  },
+
+  voteText: {
+    color: "white",
+    fontSize: 10,
+    fontWeight: "bold",
+  },
+
+  resultOverlay: {
+    position: "absolute",
+    bottom: 32,
+    left: 8,
+
+    borderRadius: 10,
+
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+
+  resultText: {
+    color: "white",
+    fontSize: 9,
+    fontWeight: "bold",
   },
 
   deleteBtn: {
