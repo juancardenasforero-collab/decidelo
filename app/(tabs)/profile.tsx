@@ -11,6 +11,7 @@ import {
   Modal,
   Pressable,
   ActivityIndicator,
+  ScrollView
 } from "react-native";
 
 import { Ionicons } from "@expo/vector-icons";
@@ -636,108 +637,162 @@ export default function Profile() {
         }
       />
 
-      {/* ================= SETTINGS ================= */}
-
       <Modal
-        visible={menuVisible}
-        animationType="slide"
-        transparent
+  visible={menuVisible}
+  animationType="slide"
+  transparent
+>
+  <Pressable
+    style={styles.modalOverlay}
+    onPress={() => setMenuVisible(false)}
+  >
+    <Pressable
+      style={[
+        styles.modalContent,
+        {
+          paddingBottom: insets.bottom + 25,
+        },
+      ]}
+    >
+      <View style={styles.modalBar} />
+
+      <Text style={styles.modalTitle}>
+        Ajustes
+      </Text>
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
       >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() =>
-            setMenuVisible(false)
-          }
-        >
-          <Pressable
-            style={[
-              styles.modalContent,
+        {[
+          {
+            icon: "person-outline",
+            label: "Cuenta",
+          },
+          {
+            icon: "create-outline",
+            label: "Editar perfil",
+          },
+          {
+            icon: "language-outline",
+            label: "Idioma",
+          },
+          {
+            icon: "moon-outline",
+            label: "Apariencia",
+          },
+          {
+            icon: "lock-closed-outline",
+            label: "Privacidad",
+          },
+          {
+            icon: "notifications-outline",
+            label: "Notificaciones",
+          },
+          {
+            icon: "shield-outline",
+            label: "Seguridad",
+          },
+          {
+            icon: "analytics-outline",
+            label: "Estadísticas",
+          },
+          {
+            icon: "help-circle-outline",
+            label: "Centro de ayuda",
+          },
+          {
+            icon: "document-text-outline",
+            label: "Términos y condiciones",
+          },
+          {
+            icon: "document-lock-outline",
+            label: "Política de privacidad",
+          },
+          {
+            icon: "log-out-outline",
+            label: "Cerrar sesión",
+          },
+        ].map((item, index) => (
+          <TouchableOpacity
+            key={index}
+            style={styles.menuItem}
+            onPress={() => {
+              setMenuVisible(false);
 
-              {
-                paddingBottom:
-                  insets.bottom + 20,
-              },
-            ]}
+              switch (item.label) {
+                case "Cuenta":
+                  router.push("/settings/account");
+                  break;
+
+                case "Editar perfil":
+                  router.push(
+                    "/settings/edit-profile"
+                  );
+                  break;
+
+                case "Idioma":
+                  router.push(
+                    "/settings/language"
+                  );
+                  break;
+
+                case "Apariencia":
+                  router.push("/settings/theme");
+                  break;
+
+                case "Privacidad":
+                  router.push(
+                    "/settings/privacy"
+                  );
+                  break;
+
+                case "Notificaciones":
+                  router.push(
+                    "/settings/notifications"
+                  );
+                  break;
+
+                case "Seguridad":
+                  router.push(
+                    "/settings/security"
+                  );
+                  break;
+
+                case "Estadísticas":
+                  router.push("/settings/stats");
+                  break;
+
+                case "Centro de ayuda":
+                  router.push(
+                    "/settings/support"
+                  );
+                  break;
+
+                case "Términos y condiciones":
+                  router.push("/settings/terms");
+                  break;
+
+                case "Política de privacidad":
+                  router.push("/settings/policy");
+                  break;
+              }
+            }}
           >
-            <View style={styles.modalBar} />
+            <Ionicons
+              name={item.icon as any}
+              size={22}
+              color="white"
+            />
 
-            <Text
-              style={styles.modalTitle}
-            >
-              Ajustes
+            <Text style={styles.menuText}>
+              {item.label}
             </Text>
-
-            {[
-              {
-                icon:
-                  "person-outline",
-
-                label:
-                  "Editar perfil",
-              },
-
-              {
-                icon:
-                  "lock-closed-outline",
-
-                label: "Privacidad",
-              },
-
-              {
-                icon:
-                  "notifications-outline",
-
-                label:
-                  "Notificaciones",
-              },
-
-              {
-                icon:
-                  "shield-outline",
-
-                label: "Seguridad",
-              },
-
-              {
-                icon:
-                  "moon-outline",
-
-                label:
-                  "Modo oscuro",
-              },
-
-              {
-                icon:
-                  "log-out-outline",
-
-                label:
-                  "Cerrar sesión",
-              },
-            ].map((item, index) => (
-              <TouchableOpacity
-                key={index}
-                style={
-                  styles.menuItem
-                }
-              >
-                <Ionicons
-                  name={item.icon as any}
-                  size={22}
-                  color="white"
-                />
-
-                <Text
-                  style={
-                    styles.menuText
-                  }
-                >
-                  {item.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </Pressable>
-        </Pressable>
-      </Modal>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </Pressable>
+  </Pressable>
+</Modal>
     </View>
   );
 }
@@ -995,34 +1050,41 @@ const styles = StyleSheet.create({
   },
 
   modalOverlay: {
-    flex: 1,
-    backgroundColor:
-      "rgba(0,0,0,0.5)",
-    justifyContent: "flex-end",
-  },
+  flex: 1,
+  backgroundColor: "rgba(0,0,0,0.55)",
+  justifyContent: "flex-end",
+},
 
   modalContent: {
-    backgroundColor: "#121212",
-    borderTopLeftRadius: 25,
-    borderTopRightRadius: 25,
-    padding: 20,
-  },
+  backgroundColor: "#121212",
+
+  borderTopLeftRadius: 28,
+  borderTopRightRadius: 28,
+
+  paddingTop: 20,
+  paddingHorizontal: 20,
+
+  maxHeight: "85%",
+},
 
   modalBar: {
-    width: 60,
-    height: 5,
-    borderRadius: 10,
-    backgroundColor: "#555",
-    alignSelf: "center",
-    marginBottom: 20,
-  },
+  width: 45,
+  height: 5,
+  borderRadius: 10,
+  backgroundColor: "#555",
 
-  modalTitle: {
-    color: "white",
-    fontSize: 22,
-    fontWeight: "700",
-    marginBottom: 20,
-  },
+  alignSelf: "center",
+  marginBottom: 18,
+},
+
+ modalTitle: {
+  color: "white",
+  fontSize: 22,
+  fontWeight: "700",
+
+  textAlign: "center",
+  marginBottom: 20,
+},
 
   menuItem: {
     flexDirection: "row",

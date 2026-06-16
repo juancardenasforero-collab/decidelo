@@ -1,151 +1,120 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import {
   View,
   Text,
   Pressable,
   StyleSheet,
-  TextInput,
 } from "react-native";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as WebBrowser from "expo-web-browser";
-import * as Google from "expo-auth-session/providers/google";
 import { Ionicons } from "@expo/vector-icons";
-
-WebBrowser.maybeCompleteAuthSession();
+import { LinearGradient } from "expo-linear-gradient";
 
 export default function Auth() {
   const router = useRouter();
 
-  const [showEmailForm, setShowEmailForm] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-
-  // 🔴 GOOGLE
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    clientId: "TU_CLIENT_ID_DE_GOOGLE",
-  });
-
-  useEffect(() => {
-    if (response?.type === "success") {
-      handleSuccessLogin();
-    }
-  }, [response]);
-
-  const handleSuccessLogin = async () => {
+  const handleLogin = async () => {
     await AsyncStorage.setItem("isLogged", "true");
     router.replace("/");
   };
 
-  // 📧 REGISTRO SIMPLE
-  const handleEmailRegister = async () => {
-    if (!email || !password) return;
-
-    await AsyncStorage.setItem("isLogged", "true");
-    router.replace("/");
-  };
-
-  // 🔥 PANTALLA PRINCIPAL (tipo TikTok)
-  if (!showEmailForm) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.title}>Únete a Decídelo</Text>
-
-        {/* GOOGLE */}
-        <Pressable
-          style={[styles.button, styles.google]}
-          onPress={() => promptAsync()}
-        >
-          <Ionicons name="logo-google" size={20} color="black" />
-          <Text style={styles.buttonTextDark}>
-            Continuar con Google
-          </Text>
-        </Pressable>
-
-        {/* FACEBOOK (visual por ahora) */}
-        <Pressable style={[styles.button, styles.facebook]}>
-          <Ionicons name="logo-facebook" size={20} color="white" />
-          <Text style={styles.buttonText}>
-            Continuar con Facebook
-          </Text>
-        </Pressable>
-
-        {/* EMAIL */}
-        <Pressable
-          style={[styles.button, styles.email]}
-          onPress={() => setShowEmailForm(true)}
-        >
-          <Ionicons name="mail" size={20} color="white" />
-          <Text style={styles.buttonText}>
-            Registrarse con correo
-          </Text>
-        </Pressable>
-
-        <Pressable onPress={() => router.back()}>
-          <Text style={styles.skip}>Ahora no</Text>
-        </Pressable>
-      </View>
-    );
-  }
-
-  // 📧 FORMULARIO EMAIL
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Crear cuenta</Text>
+    <LinearGradient
+      colors={["#000000", "#111111", "#1a1a1a"]}
+      style={styles.container}
+    >
+      <View style={styles.logoContainer}>
+        <Text style={styles.logo}>D</Text>
+      </View>
 
-      <TextInput
-        placeholder="Correo"
-        placeholderTextColor="gray"
-        style={styles.input}
-        value={email}
-        onChangeText={setEmail}
-      />
+      <Text style={styles.title}>Decídelo</Text>
 
-      <TextInput
-        placeholder="Contraseña"
-        placeholderTextColor="gray"
-        secureTextEntry
-        style={styles.input}
-        value={password}
-        onChangeText={setPassword}
-      />
+      <Text style={styles.subtitle}>
+        Comparte decisiones y deja que la comunidad vote.
+      </Text>
 
-      <Pressable style={styles.submit} onPress={handleEmailRegister}>
-        <Text style={{ color: "white", fontWeight: "bold" }}>
-          Registrarme
+      <Pressable
+        style={[styles.button, styles.google]}
+        onPress={handleLogin}
+      >
+        <Ionicons
+          name="logo-google"
+          size={22}
+          color="black"
+        />
+        <Text style={styles.googleText}>
+          Continuar con Google
         </Text>
       </Pressable>
 
-      <Pressable onPress={() => setShowEmailForm(false)}>
-        <Text style={styles.skip}>Volver</Text>
+      <Pressable
+        style={[styles.button, styles.phone]}
+        onPress={handleLogin}
+      >
+        <Ionicons
+          name="call"
+          size={22}
+          color="white"
+        />
+        <Text style={styles.buttonText}>
+          Continuar con teléfono
+        </Text>
       </Pressable>
-    </View>
+
+      <Text style={styles.terms}>
+        Al continuar aceptas nuestros términos y
+        políticas de privacidad.
+      </Text>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "black",
     justifyContent: "center",
-    padding: 20,
+    paddingHorizontal: 25,
+  },
+
+  logoContainer: {
+    alignSelf: "center",
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: "#FE2C55",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+
+  logo: {
+    color: "white",
+    fontSize: 42,
+    fontWeight: "bold",
   },
 
   title: {
     color: "white",
-    fontSize: 26,
+    fontSize: 34,
     fontWeight: "bold",
     textAlign: "center",
-    marginBottom: 40,
+  },
+
+  subtitle: {
+    color: "#aaa",
+    textAlign: "center",
+    marginTop: 10,
+    marginBottom: 50,
+    fontSize: 15,
   },
 
   button: {
+    height: 56,
+    borderRadius: 14,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    padding: 14,
-    borderRadius: 12,
-    marginBottom: 12,
+    marginBottom: 14,
     gap: 10,
   },
 
@@ -153,44 +122,26 @@ const styles = StyleSheet.create({
     backgroundColor: "white",
   },
 
-  facebook: {
-    backgroundColor: "#1877F2",
-  },
-
-  email: {
+  phone: {
     backgroundColor: "#FE2C55",
   },
 
   buttonText: {
     color: "white",
-    fontWeight: "bold",
+    fontWeight: "700",
+    fontSize: 16,
   },
 
-  buttonTextDark: {
+  googleText: {
     color: "black",
-    fontWeight: "bold",
+    fontWeight: "700",
+    fontSize: 16,
   },
 
-  skip: {
-    color: "gray",
+  terms: {
+    color: "#777",
     textAlign: "center",
-    marginTop: 20,
-  },
-
-  // 📧 FORM
-  input: {
-    backgroundColor: "#1e1e1e",
-    color: "white",
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 12,
-  },
-
-  submit: {
-    backgroundColor: "#FE2C55",
-    padding: 14,
-    borderRadius: 12,
-    alignItems: "center",
-    marginTop: 10,
+    marginTop: 25,
+    fontSize: 12,
   },
 });
