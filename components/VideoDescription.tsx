@@ -33,7 +33,7 @@ export default function VideoDescription({ user, description }: any) {
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.desc} numberOfLines={2}>
+        <Text style={styles.desc} numberOfLines={1}>
           {description}
         </Text>
 
@@ -87,12 +87,10 @@ export default function VideoDescription({ user, description }: any) {
 
 const styles = StyleSheet.create({
   container: {
-    position: "absolute",
-    bottom: 20,
-    left: 15,
-    right: 100,
-    zIndex: 5,
-  },
+  left: 15,
+  right: 100,
+  zIndex: 5,
+},
 
   userRow: {
     flexDirection: "row",

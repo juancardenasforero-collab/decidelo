@@ -11,7 +11,7 @@ export default function Splash() {
     require("../assets/video/decidelo.mp4"),
     (player) => {
       player.loop = false;
-      player.muted = false;
+      player.muted = true;
       player.play();
     }
   );

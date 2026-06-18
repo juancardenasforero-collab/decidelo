@@ -1,8 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-
-import AsyncStorage from "@react-native-async-storage/async-storage";
-
 import Slider from "@react-native-community/slider";
+import { auth } from "../firebase";
 
 import {
   useIsFocused,
@@ -85,21 +83,14 @@ export default function VideoCard({
 
   /* ================= AUTH ================= */
 
-  const requireAuth =
-    async () => {
-      const value =
-        await AsyncStorage.getItem(
-          "isLogged"
-        );
+ const requireAuth = async () => {
+  if (!auth.currentUser) {
+    setShowAuthAlert(true);
+    return false;
+  }
 
-      if (value !== "true") {
-        setShowAuthAlert(true);
-
-        return false;
-      }
-
-      return true;
-    };
+  return true;
+};
 
   /* ================= VOTES ================= */
 
@@ -329,7 +320,7 @@ export default function VideoCard({
           styles.voteContainer,
           {
             bottom:
-              insets.bottom + 150,
+              insets.bottom + 180,
           },
         ]}
       >
@@ -387,7 +378,7 @@ export default function VideoCard({
           styles.actions,
           {
             bottom:
-              insets.bottom + 110,
+              insets.bottom + 140,
           },
         ]}
       >
@@ -458,7 +449,7 @@ export default function VideoCard({
           styles.descriptionWrapper,
           {
             bottom:
-              insets.bottom + 25,
+              insets.bottom + 45,
           },
         ]}
       >
@@ -479,7 +470,7 @@ export default function VideoCard({
               styles.sliderContainer,
               {
                 bottom:
-                  insets.bottom,
+                  insets.bottom + 20,
               },
             ]}
           >

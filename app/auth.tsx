@@ -1,21 +1,71 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
   Pressable,
   StyleSheet,
+  TextInput,
+  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+} from "firebase/auth";
+
+import { auth } from "../firebase";
 
 export default function Auth() {
   const router = useRouter();
 
-  const handleLogin = async () => {
-    await AsyncStorage.setItem("isLogged", "true");
-    router.replace("/");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isRegister, setIsRegister] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleAuth = async () => {
+    if (!email || !password) {
+      Alert.alert(
+        "Campos requeridos",
+        "Ingresa correo y contraseña"
+      );
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      if (isRegister) {
+        await createUserWithEmailAndPassword(
+          auth,
+          email.trim(),
+          password
+        );
+
+        Alert.alert(
+          "Cuenta creada",
+          "Tu cuenta fue creada correctamente"
+        );
+      } else {
+        await signInWithEmailAndPassword(
+          auth,
+          email.trim(),
+          password
+        );
+      }
+
+      router.replace("/");
+    } catch (error: any) {
+      Alert.alert(
+        "Error",
+        error?.message || "Ocurrió un error"
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -33,31 +83,63 @@ export default function Auth() {
         Comparte decisiones y deja que la comunidad vote.
       </Text>
 
+      <TextInput
+        style={styles.input}
+        placeholder="Correo electrónico"
+        placeholderTextColor="#777"
+        keyboardType="email-address"
+        autoCapitalize="none"
+        value={email}
+        onChangeText={setEmail}
+      />
+
+      <TextInput
+        style={styles.input}
+        placeholder="Contraseña"
+        placeholderTextColor="#777"
+        secureTextEntry
+        value={password}
+        onChangeText={setPassword}
+      />
+
+      <Pressable
+        style={[styles.button, styles.phone]}
+        onPress={handleAuth}
+      >
+        <Text style={styles.buttonText}>
+          {loading
+            ? "Cargando..."
+            : isRegister
+            ? "Crear cuenta"
+            : "Iniciar sesión"}
+        </Text>
+      </Pressable>
+
+      <Pressable
+        onPress={() =>
+          setIsRegister(!isRegister)
+        }
+      >
+        <Text style={styles.switchText}>
+          {isRegister
+            ? "¿Ya tienes cuenta? Inicia sesión"
+            : "¿No tienes cuenta? Regístrate"}
+        </Text>
+      </Pressable>
+
+      <View style={styles.separator} />
+
       <Pressable
         style={[styles.button, styles.google]}
-        onPress={handleLogin}
       >
         <Ionicons
           name="logo-google"
           size={22}
           color="black"
         />
-        <Text style={styles.googleText}>
-          Continuar con Google
-        </Text>
-      </Pressable>
 
-      <Pressable
-        style={[styles.button, styles.phone]}
-        onPress={handleLogin}
-      >
-        <Ionicons
-          name="call"
-          size={22}
-          color="white"
-        />
-        <Text style={styles.buttonText}>
-          Continuar con teléfono
+        <Text style={styles.googleText}>
+          Google (próximamente)
         </Text>
       </Pressable>
 
@@ -104,8 +186,17 @@ const styles = StyleSheet.create({
     color: "#aaa",
     textAlign: "center",
     marginTop: 10,
-    marginBottom: 50,
+    marginBottom: 30,
     fontSize: 15,
+  },
+
+  input: {
+    backgroundColor: "#1f1f1f",
+    color: "white",
+    height: 55,
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    marginBottom: 12,
   },
 
   button: {
@@ -114,8 +205,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 14,
-    gap: 10,
+    marginTop: 10,
   },
 
   google: {
@@ -136,6 +226,19 @@ const styles = StyleSheet.create({
     color: "black",
     fontWeight: "700",
     fontSize: 16,
+  },
+
+  switchText: {
+    color: "#FE2C55",
+    textAlign: "center",
+    marginTop: 20,
+    fontWeight: "600",
+  },
+
+  separator: {
+    height: 1,
+    backgroundColor: "#222",
+    marginVertical: 25,
   },
 
   terms: {
