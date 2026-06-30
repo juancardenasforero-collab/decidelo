@@ -14,9 +14,20 @@ import { LinearGradient } from "expo-linear-gradient";
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  sendEmailVerification,
+   signOut,
 } from "firebase/auth";
 
+
 import { auth } from "../firebase";
+import { db } from "../firebase";
+
+import {
+  doc,
+  setDoc,
+  serverTimestamp,
+} from "firebase/firestore";
+
 
 export default function Auth() {
   const router = useRouter();
@@ -26,47 +37,92 @@ export default function Auth() {
   const [isRegister, setIsRegister] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const handleAuth = async () => {
-    if (!email || !password) {
-      Alert.alert(
-        "Campos requeridos",
-        "Ingresa correo y contraseña"
-      );
-      return;
-    }
+ const handleAuth = async () => {
+  if (!email || !password) {
+    Alert.alert(
+      "Campos requeridos",
+      "Ingresa correo y contraseña"
+    );
+    return;
+  }
 
-    try {
-      setLoading(true);
+  try {
+    setLoading(true);
 
-      if (isRegister) {
+    // REGISTRO
+    if (isRegister) {
+      const userCredential =
         await createUserWithEmailAndPassword(
           auth,
           email.trim(),
           password
         );
 
-        Alert.alert(
-          "Cuenta creada",
-          "Tu cuenta fue creada correctamente"
-        );
-      } else {
-        await signInWithEmailAndPassword(
-          auth,
-          email.trim(),
-          password
-        );
-      }
-
-      router.replace("/");
-    } catch (error: any) {
-      Alert.alert(
-        "Error",
-        error?.message || "Ocurrió un error"
+      await sendEmailVerification(
+        userCredential.user
       );
-    } finally {
-      setLoading(false);
+      await signOut(auth);
+
+      await setDoc(
+        doc(
+          db,
+          "users",
+          userCredential.user.uid
+        ),
+        {
+          uid: userCredential.user.uid,
+          email:
+            userCredential.user.email,
+          username:
+            email.split("@")[0],
+          avatar: "",
+          bio: "",
+          followers: 0,
+          following: 0,
+          likes: 0,
+          createdAt:
+            serverTimestamp(),
+        }
+      );
+
+      Alert.alert(
+        "Verifica tu correo",
+        "Te enviamos un email para activar tu cuenta."
+      );
+
+      return;
     }
-  };
+
+    // LOGIN
+    const userCredential =
+      await signInWithEmailAndPassword(
+        auth,
+        email.trim(),
+        password
+      );
+
+    if (
+      !userCredential.user.emailVerified
+    ) {
+      Alert.alert(
+        "Correo no verificado",
+        "Debes verificar tu correo antes de ingresar."
+      );
+
+      return;
+    }
+
+    router.replace("/");
+  } catch (error: any) {
+    Alert.alert(
+      "Error",
+      error?.message ||
+        "Ocurrió un error"
+    );
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <LinearGradient

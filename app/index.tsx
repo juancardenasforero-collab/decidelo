@@ -2,6 +2,8 @@ import { View, StyleSheet } from "react-native";
 import { VideoView, useVideoPlayer } from "expo-video";
 import { useRouter } from "expo-router";
 import { useEffect } from "react";
+import { auth } from "../firebase";
+import { onAuthStateChanged } from "firebase/auth";
 
 
 export default function Splash() {
@@ -16,13 +18,22 @@ export default function Splash() {
     }
   );
 
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      router.replace("/(tabs)");
-    }, 3000);
+ useEffect(() => {
+  const unsubscribe = onAuthStateChanged(
+    auth,
+    (user) => {
+      setTimeout(() => {
+        if (user) {
+          router.replace("/(tabs)");
+        } else {
+          router.replace("/auth");
+        }
+      }, 3000);
+    }
+  );
 
-    return () => clearTimeout(timeout);
-  }, []);
+  return unsubscribe;
+}, []);
 
   return (
     <View style={styles.container}>

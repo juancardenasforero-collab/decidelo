@@ -15,15 +15,29 @@ import {
 } from "react-native";
 
 import { Ionicons } from "@expo/vector-icons";
-
-import * as ImagePicker from "expo-image-picker";
-
-import { Video, ResizeMode } from "expo-av";
-
+import { signOut } from "firebase/auth";
+import { auth } from "../../firebase";
+import { db } from "../../firebase";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  doc,
+  getDoc,
+} from "firebase/firestore";
+import {
+  ref,
+  uploadBytes,
+  getDownloadURL,
+} from "firebase/storage";
 
+import {
+  updateDoc,
+} from "firebase/firestore";
+
+import { storage } from "../../firebase";
+import * as ImagePicker from "expo-image-picker";
+import { Video, ResizeMode } from "expo-av";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 
 const { width } = Dimensions.get("window");
@@ -45,24 +59,24 @@ export default function Profile() {
   /* ================= USER ================= */
 
   const [user, setUser] = useState({
-    id: "1",
+     id: "",
 
-    name: "Juan Pérez",
+  name: "",
 
-    username: "@juanp",
+  username: "",
 
-    bio: "Tomando decisiones malas profesionalmente 😂",
+  bio: "",
 
-    avatar:
-      "https://i.pravatar.cc/300",
+  avatar:
+    "",
 
-    followers: 1200,
+  followers: 0,
 
-    following: 300,
+  following: 0,
 
-    likes: 4500,
+  likes: 0,
 
-    videos: [],
+  videos: [],
   });
 
   /* ================= LOAD ================= */
@@ -75,23 +89,38 @@ export default function Profile() {
 
   /* ================= LOAD PROFILE ================= */
 
-  const loadProfile = async () => {
-    try {
-      const savedAvatar =
-        await AsyncStorage.getItem(
-          "profile_avatar"
-        );
+ const loadProfile = async () => {
+  try {
+    const currentUser = auth.currentUser;
 
-      if (savedAvatar) {
-        setUser((prev) => ({
-          ...prev,
-          avatar: savedAvatar,
-        }));
-      }
-    } catch (e) {
-      console.log(e);
+    if (!currentUser) return;
+
+    const userRef = doc(db, "users", currentUser.uid);
+
+    const userSnap = await getDoc(userRef);
+
+    if (userSnap.exists()) {
+      const data = userSnap.data();
+
+      setUser((prev) => ({
+        ...prev,
+        name: data.name || data.username || "Usuario",
+        username: "@" + (data.username || "usuario"),
+        bio: data.bio || "",
+        avatar: data.avatar || "",
+        followers: data.followers || 0,
+        following: data.following || 0,
+        likes: data.likes || 0,
+      }));
     }
-  };
+  } catch (e: any) {
+  console.log("ERROR STORAGE");
+  console.log(e);
+  console.log(e.code);
+  console.log(e.message);
+  console.log(e.serverResponse);
+}
+};
 
   /* ================= LOAD VIDEOS ================= */
 
@@ -116,42 +145,62 @@ export default function Profile() {
   /* ================= CHANGE PHOTO ================= */
 
   const pickImage = async () => {
-    try {
-      const result =
-        await ImagePicker.launchImageLibraryAsync({
-          mediaTypes:
-            ImagePicker.MediaTypeOptions.Images,
+  try {
+    const result =
+      await ImagePicker.launchImageLibraryAsync({
+        mediaTypes:
+          ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 1,
+      });
 
-          allowsEditing: true,
+    if (result.canceled) return;
 
-          aspect: [1, 1],
+    setLoading(true);
 
-          quality: 1,
-        });
+    const currentUser = auth.currentUser;
 
-      if (!result.canceled) {
-        const uri = result.assets[0].uri;
+    if (!currentUser) return;
 
-        setLoading(true);
+    const uri = result.assets[0].uri;
 
-        await AsyncStorage.setItem(
-          "profile_avatar",
-          uri
-        );
+    // Leer la imagen
+    const response = await fetch(uri);
+    const blob = await response.blob();
 
-        setUser((prev) => ({
-          ...prev,
-          avatar: uri,
-        }));
+    // Ruta en Firebase Storage
+    const imageRef = ref(
+      storage,
+      `avatars/${currentUser.uid}.jpg`
+    );
 
-        setLoading(false);
+    // Subir imagen
+    await uploadBytes(imageRef, blob);
+
+    // Obtener URL
+    const downloadURL =
+      await getDownloadURL(imageRef);
+
+    // Guardar URL en Firestore
+    await updateDoc(
+      doc(db, "users", currentUser.uid),
+      {
+        avatar: downloadURL,
       }
-    } catch (e) {
-      console.log(e);
+    );
 
-      setLoading(false);
-    }
-  };
+    // Actualizar estado
+    setUser((prev) => ({
+      ...prev,
+      avatar: downloadURL,
+    }));
+  } catch (e) {
+    console.log(e);
+  } finally {
+    setLoading(false);
+  }
+};
 
   /* ================= DELETE VIDEO ================= */
 
@@ -298,7 +347,7 @@ export default function Profile() {
 
               createdAt: String(
                 item.createdAt ||
-                  Date.now()
+                Date.now()
               ),
             },
           })
@@ -481,12 +530,29 @@ export default function Profile() {
                 styles.avatarWrapper
               }
             >
-              <Image
-                source={{
-                  uri: user.avatar,
-                }}
-                style={styles.avatar}
-              />
+              {user.avatar ? (
+  <Image
+    source={{ uri: user.avatar }}
+    style={styles.avatar}
+  />
+) : (
+  <View
+    style={[
+      styles.avatar,
+      {
+        backgroundColor: "#222",
+        justifyContent: "center",
+        alignItems: "center",
+      },
+    ]}
+  >
+    <Ionicons
+      name="person"
+      size={50}
+      color="#999"
+    />
+  </View>
+)}
 
               <TouchableOpacity
                 style={
@@ -594,18 +660,19 @@ export default function Profile() {
               }
             >
               <TouchableOpacity
-                style={
-                  styles.editButton
-                }
-              >
-                <Text
-                  style={
-                    styles.editButtonText
-                  }
-                >
-                  Editar perfil
-                </Text>
-              </TouchableOpacity>
+  style={styles.editButton}
+  onPress={() =>
+    router.push(
+      "/settings/edit-profile"
+    )
+  }
+>
+  <Text
+    style={styles.editButtonText}
+  >
+    Editar perfil
+  </Text>
+</TouchableOpacity>
 
               <TouchableOpacity
                 style={
@@ -638,161 +705,168 @@ export default function Profile() {
       />
 
       <Modal
-  visible={menuVisible}
-  animationType="slide"
-  transparent
->
-  <Pressable
-    style={styles.modalOverlay}
-    onPress={() => setMenuVisible(false)}
-  >
-    <Pressable
-      style={[
-        styles.modalContent,
-        {
-          paddingBottom: insets.bottom + 25,
-        },
-      ]}
-    >
-      <View style={styles.modalBar} />
-
-      <Text style={styles.modalTitle}>
-        Ajustes
-      </Text>
-
-      <ScrollView
-        showsVerticalScrollIndicator={false}
+        visible={menuVisible}
+        animationType="slide"
+        transparent
       >
-        {[
-          {
-            icon: "person-outline",
-            label: "Cuenta",
-          },
-          {
-            icon: "create-outline",
-            label: "Editar perfil",
-          },
-          {
-            icon: "language-outline",
-            label: "Idioma",
-          },
-          {
-            icon: "moon-outline",
-            label: "Apariencia",
-          },
-          {
-            icon: "lock-closed-outline",
-            label: "Privacidad",
-          },
-          {
-            icon: "notifications-outline",
-            label: "Notificaciones",
-          },
-          {
-            icon: "shield-outline",
-            label: "Seguridad",
-          },
-          {
-            icon: "analytics-outline",
-            label: "Estadísticas",
-          },
-          {
-            icon: "help-circle-outline",
-            label: "Centro de ayuda",
-          },
-          {
-            icon: "document-text-outline",
-            label: "Términos y condiciones",
-          },
-          {
-            icon: "document-lock-outline",
-            label: "Política de privacidad",
-          },
-          {
-            icon: "log-out-outline",
-            label: "Cerrar sesión",
-          },
-        ].map((item, index) => (
-          <TouchableOpacity
-            key={index}
-            style={styles.menuItem}
-            onPress={() => {
-              setMenuVisible(false);
-
-              switch (item.label) {
-                case "Cuenta":
-                  router.push("/settings/account");
-                  break;
-
-                case "Editar perfil":
-                  router.push(
-                    "/settings/edit-profile"
-                  );
-                  break;
-
-                case "Idioma":
-                  router.push(
-                    "/settings/language"
-                  );
-                  break;
-
-                case "Apariencia":
-                  router.push("/settings/theme");
-                  break;
-
-                case "Privacidad":
-                  router.push(
-                    "/settings/privacy"
-                  );
-                  break;
-
-                case "Notificaciones":
-                  router.push(
-                    "/settings/notifications"
-                  );
-                  break;
-
-                case "Seguridad":
-                  router.push(
-                    "/settings/security"
-                  );
-                  break;
-
-                case "Estadísticas":
-                  router.push("/settings/stats");
-                  break;
-
-                case "Centro de ayuda":
-                  router.push(
-                    "/settings/support"
-                  );
-                  break;
-
-                case "Términos y condiciones":
-                  router.push("/settings/terms");
-                  break;
-
-                case "Política de privacidad":
-                  router.push("/settings/policy");
-                  break;
-              }
-            }}
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setMenuVisible(false)}
+        >
+          <Pressable
+            style={[
+              styles.modalContent,
+              {
+                paddingBottom: insets.bottom + 25,
+              },
+            ]}
           >
-            <Ionicons
-              name={item.icon as any}
-              size={22}
-              color="white"
-            />
+            <View style={styles.modalBar} />
 
-            <Text style={styles.menuText}>
-              {item.label}
+            <Text style={styles.modalTitle}>
+              Ajustes
             </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-    </Pressable>
-  </Pressable>
-</Modal>
+
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+            >
+              {[
+                {
+                  icon: "person-outline",
+                  label: "Cuenta",
+                },
+                {
+                  icon: "create-outline",
+                  label: "Editar perfil",
+                },
+                {
+                  icon: "language-outline",
+                  label: "Idioma",
+                },
+                {
+                  icon: "moon-outline",
+                  label: "Apariencia",
+                },
+                {
+                  icon: "lock-closed-outline",
+                  label: "Privacidad",
+                },
+                {
+                  icon: "notifications-outline",
+                  label: "Notificaciones",
+                },
+                {
+                  icon: "shield-outline",
+                  label: "Seguridad",
+                },
+                {
+                  icon: "analytics-outline",
+                  label: "Estadísticas",
+                },
+                {
+                  icon: "help-circle-outline",
+                  label: "Centro de ayuda",
+                },
+                {
+                  icon: "document-text-outline",
+                  label: "Términos y condiciones",
+                },
+                {
+                  icon: "document-lock-outline",
+                  label: "Política de privacidad",
+                },
+                {
+                  icon: "log-out-outline",
+                  label: "Cerrar sesión",
+                },
+              ].map((item, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.menuItem}
+                  onPress={async () => {
+                    setMenuVisible(false);
+
+                    switch (item.label) {
+                      case "Cuenta":
+                        router.push("/settings/account");
+                        break;
+
+                      case "Editar perfil":
+                        router.push(
+                          "/settings/edit-profile"
+                        );
+                        break;
+
+                      case "Idioma":
+                        router.push(
+                          "/settings/language"
+                        );
+                        break;
+
+                      case "Apariencia":
+                        router.push("/settings/theme");
+                        break;
+
+                      case "Privacidad":
+                        router.push(
+                          "/settings/privacy"
+                        );
+                        break;
+
+                      case "Notificaciones":
+                        router.push(
+                          "/settings/notifications"
+                        );
+                        break;
+
+                      case "Seguridad":
+                        router.push(
+                          "/settings/security"
+                        );
+                        break;
+
+                      case "Estadísticas":
+                        router.push("/settings/stats");
+                        break;
+
+                      case "Centro de ayuda":
+                        router.push(
+                          "/settings/support"
+                        );
+                        break;
+
+                      case "Términos y condiciones":
+                        router.push("/settings/terms");
+                        break;
+
+                      case "Política de privacidad":
+                        router.push("/settings/policy");
+                        break;
+
+                      case "Cerrar sesión":
+                        await signOut(auth);
+
+                        router.replace("/auth");
+
+                        break;
+                    }
+                  }}
+                >
+                  <Ionicons
+                    name={item.icon as any}
+                    size={22}
+                    color="white"
+                  />
+
+                  <Text style={styles.menuText}>
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -1050,41 +1124,41 @@ const styles = StyleSheet.create({
   },
 
   modalOverlay: {
-  flex: 1,
-  backgroundColor: "rgba(0,0,0,0.55)",
-  justifyContent: "flex-end",
-},
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    justifyContent: "flex-end",
+  },
 
   modalContent: {
-  backgroundColor: "#121212",
+    backgroundColor: "#121212",
 
-  borderTopLeftRadius: 28,
-  borderTopRightRadius: 28,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
 
-  paddingTop: 20,
-  paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingHorizontal: 20,
 
-  maxHeight: "85%",
-},
+    maxHeight: "85%",
+  },
 
   modalBar: {
-  width: 45,
-  height: 5,
-  borderRadius: 10,
-  backgroundColor: "#555",
+    width: 45,
+    height: 5,
+    borderRadius: 10,
+    backgroundColor: "#555",
 
-  alignSelf: "center",
-  marginBottom: 18,
-},
+    alignSelf: "center",
+    marginBottom: 18,
+  },
 
- modalTitle: {
-  color: "white",
-  fontSize: 22,
-  fontWeight: "700",
+  modalTitle: {
+    color: "white",
+    fontSize: 22,
+    fontWeight: "700",
 
-  textAlign: "center",
-  marginBottom: 20,
-},
+    textAlign: "center",
+    marginBottom: 20,
+  },
 
   menuItem: {
     flexDirection: "row",

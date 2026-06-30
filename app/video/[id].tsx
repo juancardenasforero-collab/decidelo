@@ -62,7 +62,20 @@ export default function VideoScreen() {
     typeof params.avatar ===
     "string"
       ? params.avatar
-      : "https://i.pravatar.cc/300";
+      : "";
+
+      {avatar ? (
+  <Image
+    source={{ uri: avatar }}
+    style={styles.avatar}
+  />
+) : (
+  <Ionicons
+    name="person-circle"
+    size={100}
+    color="#777"
+  />
+)}
 
   /* ================= VOTING ================= */
 
